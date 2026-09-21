@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WbCloudy
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,10 +91,10 @@ fun AnaEkranIskelet() {
     ) { icPadding ->
         when (seciliSekme) {
             0 -> AnaSayfaIcerik(Modifier.padding(icPadding))
-            1 -> Text("Sohbet ekranı", modifier = Modifier.padding(icPadding))
+            1 -> SohbetEkrani(Modifier.padding(icPadding))
             2 -> Text("Sağlık ekranı", modifier = Modifier.padding(icPadding))
             3 -> Text("Ara ekranı", modifier = Modifier.padding(icPadding))
-            4 -> Text("Ayarlar ekranı", modifier = Modifier.padding(icPadding))
+            4 -> NfcTestEkrani(Modifier.padding(icPadding))
         }
     }
 }
@@ -145,7 +147,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        KonumHavaDurumuKarti(havaDurumu, izinVar)
+        KonumHavaDurumuKarti(havaDurumu, izinVar) { izinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
         Spacer(modifier = Modifier.height(16.dp))
         SaglikPaneli()
         Spacer(modifier = Modifier.height(16.dp))
@@ -154,44 +156,43 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean) {
+fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = veri?.sehir ?: "Konumunuz",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = when {
-                        !izinVar -> "Konum izni bekleniyor"
-                        veri == null -> "Yükleniyor..."
-                        else -> veri.aciklama
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(text = veri?.sehir ?: "Konumunuz", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = when {
+                            !izinVar -> "Konum izni bekleniyor"
+                            veri == null -> "Yükleniyor..."
+                            else -> veri.aciklama
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Outlined.WbCloudy, contentDescription = "Hava durumu", modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (veri != null) "${veri.sicaklik.toInt()}°C" else "--°C",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.WbCloudy,
-                    contentDescription = "Hava durumu",
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (veri != null) "${veri.sicaklik.toInt()}°C" else "--°C",
-                    style = MaterialTheme.typography.headlineSmall
-                )
+            if (!izinVar) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = izinIste) {
+                    Text("Konum iznini ver")
+                }
             }
         }
     }
@@ -200,10 +201,7 @@ fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean) {
 @Composable
 fun SaglikPaneli() {
     Column {
-        Text(
-            text = "Sağlık Özeti",
-            style = MaterialTheme.typography.titleMedium
-        )
+        Text(text = "Sağlık Özeti", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             SaglikKarti(Icons.Outlined.DirectionsWalk, "Adım", "4.230", Modifier.weight(1f))
@@ -221,13 +219,8 @@ fun SaglikPaneli() {
 
 @Composable
 fun SaglikKarti(ikon: ImageVector, baslik: String, deger: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+    Card(modifier = modifier, shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Icon(ikon, contentDescription = baslik, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = deger, style = MaterialTheme.typography.titleMedium)
@@ -238,10 +231,7 @@ fun SaglikKarti(ikon: ImageVector, baslik: String, deger: String, modifier: Modi
 
 @Composable
 fun OneriKarti() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = "Bugün için öneri", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(4.dp))
@@ -249,6 +239,51 @@ fun OneriKarti() {
                 text = "Henüz yeterli veri yok, kullanmaya devam ettikçe kişisel öneriler burada görünecek.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun SohbetEkrani(modifier: Modifier = Modifier) {
+    var mod by remember { mutableStateOf(AsistanModu.SAKIN) }
+    var konusuyor by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        AsistanMaskot(
+            mod = mod,
+            konusuyor = konusuyor,
+            mesaj = "Merhaba, ben senin asistanın"
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Sohbet özelliği yakında burada olacak", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = { konusuyor = !konusuyor }) {
+            Text(if (konusuyor) "Konuşmayı durdur" else "Konuş (test)")
+        }
+    }
+}
+
+@Composable
+fun NfcTestEkrani(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val activity = context as? MainActivity
+    val okunanId = activity?.sonOkunanNfcId?.value
+
+    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+        Text("NFC Kart Okuma Testi", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("Kartını telefonun arkasına dokundur.")
+        Spacer(modifier = Modifier.height(16.dp))
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Text(
+                text = okunanId ?: "Henüz kart okunmadı",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyLarge
             )
         }
     }
