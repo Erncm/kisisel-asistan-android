@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WbCloudy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -47,11 +48,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.health.connect.client.PermissionController
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.launch
 
@@ -102,21 +105,44 @@ fun AnaEkranIskelet() {
 @Composable
 fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val activity = context as? MainActivity
     var havaDurumu by remember { mutableStateOf(havaDurumuOnbellekOku(context)) }
     var izinVar by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var adimSayisi by remember { mutableStateOf<Long?>(null) }
     val kapsam = rememberCoroutineScope()
 
     val izinIstegi = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { verildi -> izinVar = verildi }
 
+    val saglikIzinIstegi = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { verilenIzinler ->
+        if (verilenIzinler.containsAll(HEALTH_CONNECT_IZINLERI)) {
+            kapsam.launch { adimSayisi = bugunkuAdimSayisi(context) }
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (!izinVar) {
             izinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (healthConnectKurulumuVarMi(context)) {
+            try {
+                val client = androidx.health.connect.client.HealthConnectClient.getOrCreate(context)
+                val mevcutIzinler = client.permissionController.getGrantedPermissions()
+                if (mevcutIzinler.containsAll(HEALTH_CONNECT_IZINLERI)) {
+                    adimSayisi = bugunkuAdimSayisi(context)
+                } else {
+                    saglikIzinIstegi.launch(HEALTH_CONNECT_IZINLERI)
+                }
+            } catch (e: Exception) {
+                // Health Connect kurulu değil ya da erişilemiyor
+            }
         }
     }
 
@@ -147,20 +173,36 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        if (activity?.odakModuAktif?.value == true) {
+            OdakModuBanner()
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         KonumHavaDurumuKarti(havaDurumu, izinVar) { izinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
         Spacer(modifier = Modifier.height(16.dp))
-        SaglikPaneli()
+        SaglikPaneli(adimSayisi)
         Spacer(modifier = Modifier.height(16.dp))
         OneriKarti()
     }
 }
 
 @Composable
-fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: () -> Unit) {
+fun OdakModuBanner() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1B3A))
     ) {
+        Text(
+            text = "🎯 Odak Modu Aktif — kartı tekrar okutunca durur",
+            modifier = Modifier.padding(16.dp),
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -190,21 +232,19 @@ fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: ()
             }
             if (!izinVar) {
                 Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = izinIste) {
-                    Text("Konum iznini ver")
-                }
+                TextButton(onClick = izinIste) { Text("Konum iznini ver") }
             }
         }
     }
 }
 
 @Composable
-fun SaglikPaneli() {
+fun SaglikPaneli(adimSayisi: Long?) {
     Column {
         Text(text = "Sağlık Özeti", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            SaglikKarti(Icons.Outlined.DirectionsWalk, "Adım", "4.230", Modifier.weight(1f))
+            SaglikKarti(Icons.Outlined.DirectionsWalk, "Adım", adimSayisi?.toString() ?: "4.230", Modifier.weight(1f))
             Spacer(modifier = Modifier.width(8.dp))
             SaglikKarti(Icons.Outlined.LocalDrink, "Su", "1.2L", Modifier.weight(1f))
         }
@@ -254,11 +294,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-        AsistanMaskot(
-            mod = mod,
-            konusuyor = konusuyor,
-            mesaj = "Merhaba, ben senin asistanın"
-        )
+        AsistanMaskot(mod = mod, konusuyor = konusuyor, mesaj = "Merhaba, ben senin asistanın")
         Spacer(modifier = Modifier.height(24.dp))
         Text("Sohbet özelliği yakında burada olacak", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(16.dp))

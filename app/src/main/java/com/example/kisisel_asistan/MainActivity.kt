@@ -17,6 +17,9 @@ class MainActivity : ComponentActivity() {
 
     private var nfcAdapter: NfcAdapter? = null
     val sonOkunanNfcId = mutableStateOf<String?>(null)
+    val odakModuAktif = mutableStateOf(false)
+
+    private val ODAK_KART_ID = "4B63B1B0"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +61,9 @@ class MainActivity : ComponentActivity() {
         if (tag != null) {
             val id = tag.id.joinToString("") { "%02X".format(it) }
             sonOkunanNfcId.value = id
+            if (id == ODAK_KART_ID) {
+                odakModuAktif.value = !odakModuAktif.value
+            }
         }
     }
 }

@@ -28,8 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -76,13 +78,18 @@ fun AsistanMaskot(
         label = "agiz"
     )
 
+    val yanakOpaklik by animateFloatAsState(
+        targetValue = if (mod == AsistanModu.MUTLU || mod == AsistanModu.UTANGAC) 0.55f else 0f,
+        animationSpec = tween(400),
+        label = "yanak"
+    )
+
+    val egim by animateFloatAsState(targetValue = bakisX * 4f, animationSpec = tween(300), label = "egim")
+
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AnimatedVisibility(visible = mesaj != null) {
             Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.padding(bottom = 10.dp)) {
-                Text(
-                    text = mesaj ?: "",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                Text(text = mesaj ?: "", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
         }
 
@@ -90,6 +97,7 @@ fun AsistanMaskot(
             modifier = Modifier
                 .size(140.dp)
                 .scale(olcek)
+                .rotate(egim)
                 .clip(RoundedCornerShape(48.dp))
                 .background(Color(0xFF1B1B3A))
                 .pointerInput(Unit) {
@@ -102,6 +110,24 @@ fun AsistanMaskot(
                 },
             contentAlignment = Alignment.Center
         ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 78.dp, start = 18.dp)
+                    .size(width = 22.dp, height = 11.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF43F5E))
+                    .alpha(yanakOpaklik)
+            )
+            Box(
+                modifier = Modifier
+                    .padding(top = 78.dp, end = 18.dp)
+                    .align(Alignment.TopEnd)
+                    .size(width = 22.dp, height = 11.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF43F5E))
+                    .alpha(yanakOpaklik)
+            )
+
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box {
                     Goz(kirpiyor, bakisX, bakisY, mod.renk, Modifier.padding(end = 16.dp))
@@ -136,7 +162,15 @@ private fun Goz(kirpiyor: Boolean, bakisX: Float, bakisY: Float, renk: Color, mo
                     .size(12.dp)
                     .clip(CircleShape)
                     .background(renk)
-            )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 2.dp, top = 2.dp)
+                        .size(3.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                )
+            }
         }
     }
 }
