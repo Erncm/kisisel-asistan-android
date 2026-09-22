@@ -4,58 +4,38 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Chat
-import androidx.compose.material.icons.outlined.DirectionsWalk
-import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LocalDrink
-import androidx.compose.material.icons.outlined.MonitorHeart
-import androidx.compose.material.icons.outlined.NightsStay
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.WbCloudy
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 sealed class Sekme(val baslik: String, val ikon: ImageVector) {
@@ -94,9 +74,9 @@ fun AnaEkranIskelet() {
     ) { icPadding ->
         when (seciliSekme) {
             0 -> AnaSayfaIcerik(Modifier.padding(icPadding))
-            1 -> SadeSohbetEkrani(Modifier.padding(icPadding))
-            2 -> Text("Sağlık ekranı", modifier = Modifier.padding(icPadding))
-            3 -> Text("Ara ekranı", modifier = Modifier.padding(icPadding))
+            1 -> GelismisSohbetEkrani(Modifier.padding(icPadding))
+            2 -> Text("Sağlık Detay Ekranı", modifier = Modifier.padding(icPadding))
+            3 -> Text("Arama Ekranı", modifier = Modifier.padding(icPadding))
             4 -> NfcTestEkrani(Modifier.padding(icPadding))
         }
     }
@@ -135,7 +115,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         }
     }
 
-    val saglikIzniniIst e: () -> Unit = {
+    val saglikIzniniIste: () -> Unit = {
         if (healthConnectKurulumuVarMi(context)) {
             saglikIzinIstegi.launch(HEALTH_CONNECT_IZINLERI)
         } else {
@@ -149,7 +129,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         }
 
         if (!healthConnectKurulumuVarMi(context)) {
-            saglikDurumMesaji = "Health Connect uygulaması kurulu değil"
+            saglikDurumMesaji = "Health Connect kurulu değil"
         } else {
             try {
                 val client = HealthConnectClient.getOrCreate(context)
@@ -161,10 +141,9 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                     }
                 } else {
                     saglikDurumMesaji = "Sağlık izni verilmedi"
-                    saglikIzinIstegi.launch(HEALTH_CONNECT_IZINLERI)
                 }
             } catch (e: Exception) {
-                saglikDurumMesaji = "Bağlantı hatası: ${e.message ?: e.javaClass.simpleName}"
+                saglikDurumMesaji = "Bağlantı hatası"
             }
         }
     }
@@ -185,7 +164,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                     }
                 }
             } catch (e: SecurityException) {
-                // izin reddedildi
+                // Konum izni verilmedi
             }
         }
     }
@@ -322,22 +301,216 @@ fun OneriKarti() {
     }
 }
 
+// ==================== YENİ SOHBET BÖLÜMÜ ====================
+
+data class Mesaj(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val metin: String,
+    val gonderenKullaniciMi: Boolean,
+    val zaman: String = "15:30"
+)
+
 @Composable
-fun SadeSohbetEkrani(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(Icons.Outlined.Chat, contentDescription = null, modifier = Modifier.size(64.dp))
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Sohbet Arayüzü", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Asistan sohbet sistemi hazırlanıyor.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
+    var mesajMetni by remember { mutableStateOf("") }
+    val mesajlar = remember {
+        mutableStateListOf(
+            Mesaj(metin = "Merhaba! Size nasıl yardımcı olabilirim?", gonderenKullaniciMi = false)
         )
+    }
+    var yukleniyor by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    val mesajGonder = { metin: String ->
+        if (metin.isNotBlank()) {
+            val yeniKullaniciMesaji = Mesaj(metin = metin, gonderenKullaniciMi = true)
+            mesajlar.add(yeniKullaniciMesaji)
+            mesajMetni = ""
+            yukleniyor = true
+
+            scope.launch {
+                listState.animateScrollToItem(mesajlar.size - 1)
+                delay(1200) // Yapay zeka yanıt gecikmesi simülasyonu
+
+                val yanit = when {
+                    metin.contains("adım", ignoreCase = true) -> "Bugünkü adım sayınızı Sağlık Özeti kartından takip edebilirsiniz."
+                    metin.contains("hava", ignoreCase = true) -> "Konumunuza göre hava durumu Ana Sayfada görüntülenmektedir."
+                    metin.contains("su", ignoreCase = true) -> "Günlük su hedefinize ulaşmak için saat başı bir bardak su içmeyi unutmayın!"
+                    else -> "Anladım, bu konuda size yardımcı olmak için arka planda çalışıyorum."
+                }
+
+                mesajlar.add(Mesaj(metin = yanit, gonderenKullaniciMi = false))
+                yukleniyor = false
+                listState.animateScrollToItem(mesajlar.size - 1)
+            }
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Üst Başlık Panel
+        Surface(
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.SmartToy,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Kişisel Asistan",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = if (yukleniyor) "Yazıyor..." else "Çevrimiçi",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (yukleniyor) MaterialTheme.colorScheme.primary else Color.Gray
+                    )
+                }
+            }
+        }
+
+        // Mesaj Listesi
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            items(mesajlar, key = { it.id }) { mesaj ->
+                MesajBalon() (mesaj = mesaj)
+            }
+            if (yukleniyor) {
+                item {
+                    Text(
+                        text = "Asistan düşünüyor...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        }
+
+        // Hızlı Kısayol Chip'leri
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val kisayollar = listOf("📊 Adım Sayım", "🌦️ Hava Durumu", "💧 Su İçeceğim", "💡 Öneri Ver")
+            items(kisayollar) { kisayol ->
+                AssistChip(
+                    onClick = { mesajGonder(kisayol) },
+                    label = { Text(kisayol, fontSize = 12.sp) }
+                )
+            }
+        }
+
+        // Mesaj Girdi Alanı
+        Surface(
+            tonalElevation = 8.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = mesajMetni,
+                    onValueChange = { mesajMetni = it },
+                    placeholder = { Text("Bir mesaj yazın...") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(24.dp),
+                    maxLines = 3,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { mesajGonder(mesajMetni) })
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = { mesajGonder(mesajMetni) },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Send,
+                        contentDescription = "Gönder",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MesajBalon(mesaj: Mesaj) {
+    val hiza = if (mesaj.gonderenKullaniciMi) Alignment.CenterEnd else Alignment.CenterStart
+    val arkaPlanRengi = if (mesaj.gonderenKullaniciMi) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val yaziRengi = if (mesaj.gonderenKullaniciMi) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val koseKavisleri = if (mesaj.gonderenKullaniciMi) {
+        RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp)
+    } else {
+        RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp)
+    }
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = hiza
+    ) {
+        Column(
+            horizontalAlignment = if (mesaj.gonderenKullaniciMi) Alignment.End else Alignment.Start
+        ) {
+            Surface(
+                color = arkaPlanRengi,
+                shape = koseKavisleri,
+                modifier = Modifier.widthIn(max = 280.dp)
+            ) {
+                Text(
+                    text = mesaj.metin,
+                    color = yaziRengi,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
     }
 }
 
