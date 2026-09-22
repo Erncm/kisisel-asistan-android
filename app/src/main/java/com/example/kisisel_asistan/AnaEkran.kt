@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.launch
@@ -113,6 +114,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         )
     }
     var adimSayisi by remember { mutableStateOf<Long?>(null) }
+    var saglikDurumMesaji by remember { mutableStateOf("Kontrol ediliyor...") }
     val kapsam = rememberCoroutineScope()
 
     val izinIstegi = rememberLauncherForActivityResult(
@@ -123,7 +125,14 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         PermissionController.createRequestPermissionResultContract()
     ) { verilenIzinler ->
         if (verilenIzinler.containsAll(HEALTH_CONNECT_IZINLERI)) {
-            kapsam.launch { adimSayisi = bugunkuAdimSayisi(context) }
+            kapsam.launch {
+                when (val sonuc = bugunkuAdimSayisiDetayli(context)) {
+                    is AdimSonucu.Basarili -> { adimSayisi = sonuc.adim; saglikDurumMesaji = "" }
+                    is AdimSonucu.Hata -> saglikDurumMesaji = "Hata: ${sonuc.mesaj}"
+                }
+            }
+        } else {
+            saglikDurumMesaji = "Sağlık izni verilmedi"
         }
     }
 
@@ -131,17 +140,24 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         if (!izinVar) {
             izinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
-        if (healthConnectKurulumuVarMi(context)) {
+
+        if (!healthConnectKurulumuVarMi(context)) {
+            saglikDurumMesaji = "Health Connect uygulaması kurulu değil"
+        } else {
             try {
-                val client = androidx.health.connect.client.HealthConnectClient.getOrCreate(context)
+                val client = HealthConnectClient.getOrCreate(context)
                 val mevcutIzinler = client.permissionController.getGrantedPermissions()
                 if (mevcutIzinler.containsAll(HEALTH_CONNECT_IZINLERI)) {
-                    adimSayisi = bugunkuAdimSayisi(context)
+                    when (val sonuc = bugunkuAdimSayisiDetayli(context)) {
+                        is AdimSonucu.Basarili -> { adimSayisi = sonuc.adim; saglikDurumMesaji = "" }
+                        is AdimSonucu.Hata -> saglikDurumMesaji = "Hata: ${sonuc.mesaj}"
+                    }
                 } else {
+                    saglikDurumMesaji = "Sağlık izni bekleniyor"
                     saglikIzinIstegi.launch(HEALTH_CONNECT_IZINLERI)
                 }
             } catch (e: Exception) {
-                // Health Connect kurulu değil ya da erişilemiyor
+                saglikDurumMesaji = "Bağlantı hatası: ${e.message ?: e.javaClass.simpleName}"
             }
         }
     }
@@ -179,7 +195,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         }
         KonumHavaDurumuKarti(havaDurumu, izinVar) { izinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
         Spacer(modifier = Modifier.height(16.dp))
-        SaglikPaneli(adimSayisi)
+        SaglikPaneli(adimSayisi, saglikDurumMesaji)
         Spacer(modifier = Modifier.height(16.dp))
         OneriKarti()
     }
@@ -239,12 +255,17 @@ fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: ()
 }
 
 @Composable
-fun SaglikPaneli(adimSayisi: Long?) {
+fun SaglikPaneli(adimSayisi: Long?, durumMesaji: String) {
     Column {
         Text(text = "Sağlık Özeti", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            SaglikKarti(Icons.Outlined.DirectionsWalk, "Adım", adimSayisi?.toString() ?: "4.230", Modifier.weight(1f))
+            SaglikKarti(
+                Icons.Outlined.DirectionsWalk,
+                "Adım",
+                adimSayisi?.toString() ?: (if (durumMesaji.isNotEmpty()) durumMesaji else "..."),
+                Modifier.weight(1f)
+            )
             Spacer(modifier = Modifier.width(8.dp))
             SaglikKarti(Icons.Outlined.LocalDrink, "Su", "1.2L", Modifier.weight(1f))
         }
