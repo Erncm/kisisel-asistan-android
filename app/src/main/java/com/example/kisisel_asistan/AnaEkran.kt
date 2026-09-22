@@ -4,6 +4,15 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -60,8 +70,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -325,6 +337,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     var mod by remember { mutableStateOf(AsistanModu.MUTLU) }
     var konusuyor by remember { mutableStateOf(false) }
     var metinGirisi by remember { mutableStateOf("") }
+    var balondakiMetin by remember { mutableStateOf("Nasıl yardımcı olabilirim? 💡") }
     
     val mesajlar = remember {
         mutableStateListOf(
@@ -345,12 +358,47 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Gelişmiş Maskot Entegrasyonu
-        AsistanMaskot(
-            mod = mod,
-            konusuyor = konusuyor,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
+        // HTML'deki Konuşma Balonu & Ses Dalgaları Entegre Edilmiş Maskot
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 4.dp)
+        ) {
+            // Konuşma Balonu
+            AnimatedVisibility(
+                visible = konusuyor || balondakiMetin.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFF38BDF8), shape = RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = balondakiMetin,
+                        color = Color(0xFF0B0F19),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Ses Dalgaları (Talking Waves)
+            AnimatedVisibility(visible = konusuyor) {
+                SesDalgalari()
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Maskot Komponenti
+            AsistanMaskot(
+                mod = mod,
+                konusuyor = konusuyor,
+                modifier = Modifier
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -389,16 +437,21 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                         mesajlar.add(SohbetMesaji(gonderilen, kullaniciMi = true))
                         metinGirisi = ""
                         
-                        // Maskot tepkisi ve otomatik yanıt simülasyonu
                         kapsam.launch {
                             mod = AsistanModu.SASKIN
-                            delay(1000)
+                            balondakiMetin = "Düşünüyorum... 🤔"
+                            delay(1200)
+                            
                             mod = AsistanModu.MUTLU
                             konusuyor = true
-                            mesajlar.add(SohbetMesaji("Harika! '$gonderilen' hakkında çalışıyorum.", kullaniciMi = false))
-                            delay(2500)
+                            val cevap = "Harika! '$gonderilen' hakkında çalışıyorum."
+                            balondakiMetin = cevap
+                            mesajlar.add(SohbetMesaji(cevap, kullaniciMi = false))
+                            
+                            delay(3000)
                             konusuyor = false
                             mod = AsistanModu.SAKIN
+                            balondakiMetin = "Başka bir şey var mı? 💡"
                         }
                     }
                 }
@@ -410,6 +463,34 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun SesDalgalari() {
+    val infiniteTransition = rememberInfiniteTransition(label = "wave")
+    
+    val height1 by infiniteTransition.animateFloat(
+        initialValue = 4f, targetValue = 18f,
+        animationSpec = infiniteRepeatable(tween(400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "h1"
+    )
+    val height2 by infiniteTransition.animateFloat(
+        initialValue = 14f, targetValue = 6f,
+        animationSpec = infiniteRepeatable(tween(350, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "h2"
+    )
+    val height3 by infiniteTransition.animateFloat(
+        initialValue = 6f, targetValue = 20f,
+        animationSpec = infiniteRepeatable(tween(450, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "h3"
+    )
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(20.dp)
+    ) {
+        Box(Modifier.width(3.dp).height(height1.dp).background(Color(0xFF38BDF8), CircleShape))
+        Box(Modifier.width(3.dp).height(height2.dp).background(Color(0xFF38BDF8), CircleShape))
+        Box(Modifier.width(3.dp).height(height3.dp).background(Color(0xFF38BDF8), CircleShape))
     }
 }
 
