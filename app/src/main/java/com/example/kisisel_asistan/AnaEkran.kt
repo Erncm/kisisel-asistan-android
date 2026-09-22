@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,10 +16,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.Favorite
@@ -28,13 +34,14 @@ import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WbCloudy
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,12 +49,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -57,6 +66,7 @@ import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 sealed class Sekme(val baslik: String, val ikon: ImageVector) {
@@ -73,6 +83,11 @@ val sekmeler = listOf(
     Sekme.Saglik,
     Sekme.Ara,
     Sekme.Ayarlar
+)
+
+data class SohbetMesaji(
+    val metin: String,
+    val kullaniciMi: Boolean
 )
 
 @Composable
@@ -307,20 +322,124 @@ fun OneriKarti() {
 
 @Composable
 fun SohbetEkrani(modifier: Modifier = Modifier) {
-    var mod by remember { mutableStateOf(AsistanModu.SAKIN) }
+    var mod by remember { mutableStateOf(AsistanModu.MUTLU) }
     var konusuyor by remember { mutableStateOf(false) }
+    var metinGirisi by remember { mutableStateOf("") }
+    
+    val mesajlar = remember {
+        mutableStateListOf(
+            SohbetMesaji("Merhaba! Ben senin kişisel asistanınım. Sana nasıl yardımcı olabilirim?", kullaniciMi = false)
+        )
+    }
+    
+    val listState = rememberLazyListState()
+    val kapsam = rememberCoroutineScope()
+
+    LaunchedEffect(mesajlar.size) {
+        listState.animateScrollToItem(mesajlar.size)
+    }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        AsistanMaskot(mod = mod, konusuyor = konusuyor, mesaj = "Merhaba, ben senin asistanın")
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("Sohbet özelliği yakında burada olacak", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { konusuyor = !konusuyor }) {
-            Text(if (konusuyor) "Konuşmayı durdur" else "Konuş (test)")
+        // Gelişmiş Maskot Entegrasyonu
+        AsistanMaskot(
+            mod = mod,
+            konusuyor = konusuyor,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Mesaj Listesi
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(mesajlar) { mesaj ->
+                MesajBalonu(mesaj)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Mesaj Gönderme Alanı
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = metinGirisi,
+                onValueChange = { metinGirisi = it },
+                placeholder = { Text("Bir mesaj yazın...") },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = {
+                    if (metinGirisi.isNotBlank()) {
+                        val gonderilen = metinGirisi
+                        mesajlar.add(SohbetMesaji(gonderilen, kullaniciMi = true))
+                        metinGirisi = ""
+                        
+                        // Maskot tepkisi ve otomatik yanıt simülasyonu
+                        kapsam.launch {
+                            mod = AsistanModu.SASKIN
+                            delay(1000)
+                            mod = AsistanModu.MUTLU
+                            konusuyor = true
+                            mesajlar.add(SohbetMesaji("Harika! '$gonderilen' hakkında çalışıyorum.", kullaniciMi = false))
+                            delay(2500)
+                            konusuyor = false
+                            mod = AsistanModu.SAKIN
+                        }
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Gönder",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MesajBalonu(mesaj: SohbetMesaji) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (mesaj.kullaniciMi) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (mesaj.kullaniciMi) 16.dp else 4.dp,
+                        bottomEnd = if (mesaj.kullaniciMi) 4.dp else 16.dp
+                    )
+                )
+                .background(
+                    if (mesaj.kullaniciMi) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surfaceVariant
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = mesaj.metin,
+                color = if (mesaj.kullaniciMi) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }
