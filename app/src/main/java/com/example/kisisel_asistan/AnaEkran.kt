@@ -953,8 +953,8 @@ fun MaskotSohbetEkrani(modifier: Modifier = Modifier) {
         function moveMascotTo(x, y) {
           handleMove(x + 100, y + 100);
 
-          mascotWrapper.style.left = `${x}px`;
-          mascotWrapper.style.top = `${y}px`;
+          mascotWrapper.style.left = x + 'px';
+          mascotWrapper.style.top = y + 'px';
         }
 
         window.addEventListener('click', (e) => {
@@ -996,8 +996,8 @@ fun MaskotSohbetEkrani(modifier: Modifier = Modifier) {
           }
 
           document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('active'));
-          if (event && event.currentTarget) {
-            event.currentTarget.classList.add('active');
+          if (window.event && window.event.currentTarget) {
+            window.event.currentTarget.classList.add('active');
           }
         }
 
@@ -1058,7 +1058,7 @@ fun MaskotSohbetEkrani(modifier: Modifier = Modifier) {
             const x = Math.cos(angle) * distance;
             const y = Math.sin(angle) * distance;
 
-            iris.style.transform = `translate($${x}px, $${y}px)`;
+            iris.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
           });
 
           const distFromCenter = Math.hypot(clientX - window.innerWidth / 2, clientY - window.innerHeight / 2);
@@ -1079,7 +1079,7 @@ fun MaskotSohbetEkrani(modifier: Modifier = Modifier) {
             const tiltX = (clientY - centerY) / 25;
             const tiltY = (centerX - clientX) / 25;
 
-            mascot.style.transform = `rotateX($${tiltX}deg) rotateY($${tiltY}deg)`;
+            mascot.style.transform = 'rotateX(' + tiltX + 'deg) rotateY(' + tiltY + 'deg)';
           }
         }
 
@@ -1093,7 +1093,7 @@ fun MaskotSohbetEkrani(modifier: Modifier = Modifier) {
             angle += 0.2;
             const x = Math.cos(angle) * 18;
             const y = Math.sin(angle) * 18;
-            irises.forEach(iris => iris.style.transform = `translate($${x}px, $${y}px)`);
+            irises.forEach(iris => iris.style.transform = 'translate(' + x + 'px, ' + y + 'px)');
           }, 20);
 
           setTimeout(() => clearInterval(hypnoInterval), 3000);
@@ -1136,7 +1136,7 @@ fun MaskotSohbetEkrani(modifier: Modifier = Modifier) {
             if (this.y < 0) this.reset();
           }
           draw() {
-            ctx.fillStyle = `rgba(255, 255, 255, $${this.alpha})`;
+            ctx.fillStyle = 'rgba(255, 255, 255, ' + this.alpha + ')';
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
