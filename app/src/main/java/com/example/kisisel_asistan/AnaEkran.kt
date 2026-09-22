@@ -4,6 +4,16 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,6 +35,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -72,12 +83,18 @@ fun AnaEkranIskelet() {
             }
         }
     ) { icPadding ->
-        when (seciliSekme) {
-            0 -> AnaSayfaIcerik(Modifier.padding(icPadding))
-            1 -> GelismisSohbetEkrani(Modifier.padding(icPadding))
-            2 -> Text("Sağlık Detay Ekranı", modifier = Modifier.padding(icPadding))
-            3 -> Text("Arama Ekranı", modifier = Modifier.padding(icPadding))
-            4 -> NfcTestEkrani(Modifier.padding(icPadding))
+        Crossfade(
+            targetState = seciliSekme,
+            animationSpec = tween(durationMillis = 300),
+            label = "SekmeGecisAnimasyonu"
+        ) { sekmeIndex ->
+            when (sekmeIndex) {
+                0 -> AnaSayfaIcerik(Modifier.padding(icPadding))
+                1 -> GelismisSohbetEkrani(Modifier.padding(icPadding))
+                2 -> Text("Sağlık Detay Ekranı", modifier = Modifier.padding(icPadding))
+                3 -> Text("Arama Ekranı", modifier = Modifier.padding(icPadding))
+                4 -> NfcTestEkrani(Modifier.padding(icPadding))
+            }
         }
     }
 }
@@ -301,13 +318,12 @@ fun OneriKarti() {
     }
 }
 
-// ==================== YENİ SOHBET BÖLÜMÜ ====================
+// ==================== ANİMASYONLU SOHBET BÖLÜMÜ ====================
 
 data class Mesaj(
     val id: String = java.util.UUID.randomUUID().toString(),
     val metin: String,
-    val gonderenKullaniciMi: Boolean,
-    val zaman: String = "15:30"
+    val gonderenKullaniciMi: Boolean
 )
 
 @Composable
@@ -331,7 +347,7 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
 
             scope.launch {
                 listState.animateScrollToItem(mesajlar.size - 1)
-                delay(1200) // Yapay zeka yanıt gecikmesi simülasyonu
+                delay(1200)
 
                 val yanit = when {
                     metin.contains("adım", ignoreCase = true) -> "Bugünkü adım sayınızı Sağlık Özeti kartından takip edebilirsiniz."
@@ -352,7 +368,7 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Üst Başlık Panel
+        // Üst Başlık
         Surface(
             tonalElevation = 2.dp,
             modifier = Modifier.fillMaxWidth()
@@ -402,16 +418,19 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             items(mesajlar, key = { it.id }) { mesaj ->
-                MesajBalon() (mesaj = mesaj)
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically(
+                        initialOffsetY = { it / 2 },
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(300))
+                ) {
+                    MesajBalon(mesaj = mesaj)
+                }
             }
             if (yukleniyor) {
                 item {
-                    Text(
-                        text = "Asistan düşünüyor...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
+                    YaziyorGostergesi()
                 }
             }
         }
@@ -432,7 +451,7 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
-        // Mesaj Girdi Alanı
+        // Girdi Alanı
         Surface(
             tonalElevation = 8.dp,
             modifier = Modifier.fillMaxWidth()
@@ -473,6 +492,39 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun YaziyorGostergesi() {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulsing")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "Asistan yanıt üretiyor...",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
 fun MesajBalon(mesaj: Mesaj) {
     val hiza = if (mesaj.gonderenKullaniciMi) Alignment.CenterEnd else Alignment.CenterStart
     val arkaPlanRengi = if (mesaj.gonderenKullaniciMi) {
@@ -495,21 +547,17 @@ fun MesajBalon(mesaj: Mesaj) {
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = hiza
     ) {
-        Column(
-            horizontalAlignment = if (mesaj.gonderenKullaniciMi) Alignment.End else Alignment.Start
+        Surface(
+            color = arkaPlanRengi,
+            shape = koseKavisleri,
+            modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            Surface(
-                color = arkaPlanRengi,
-                shape = koseKavisleri,
-                modifier = Modifier.widthIn(max = 280.dp)
-            ) {
-                Text(
-                    text = mesaj.metin,
-                    color = yaziRengi,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                )
-            }
+            Text(
+                text = mesaj.metin,
+                color = yaziRengi,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            )
         }
     }
 }
