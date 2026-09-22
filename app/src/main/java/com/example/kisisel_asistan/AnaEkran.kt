@@ -1,7 +1,11 @@
 package com.example.kisisel_asistan
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -39,6 +43,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +53,9 @@ import androidx.health.connect.client.PermissionController
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 sealed class Sekme(val baslik: String, val ikon: ImageVector) {
     object AnaSayfa : Sekme("Ana Sayfa", Icons.Outlined.Home)
@@ -93,7 +101,7 @@ fun AnaEkranIskelet() {
                 1 -> GelismisSohbetEkrani(Modifier.padding(icPadding))
                 2 -> Text("Sağlık Detay Ekranı", modifier = Modifier.padding(icPadding))
                 3 -> Text("Arama Ekranı", modifier = Modifier.padding(icPadding))
-                4 -> NfcTestEkrani(Modifier.padding(icPadding))
+                4 -> AyarlarEkrani(Modifier.padding(icPadding))
             }
         }
     }
@@ -221,7 +229,11 @@ fun OdakModuBanner() {
 
 @Composable
 fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -229,7 +241,7 @@ fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: ()
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = veri?.sehir ?: "Konumunuz", style = MaterialTheme.typography.titleMedium)
+                    Text(text = veri?.sehir ?: "Konumunuz", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
                         text = when {
                             !izinVar -> "Konum izni bekleniyor"
@@ -245,7 +257,8 @@ fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: ()
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (veri != null) "${veri.sicaklik.toInt()}°C" else "--°C",
-                        style = MaterialTheme.typography.headlineSmall
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -260,7 +273,7 @@ fun KonumHavaDurumuKarti(veri: HavaDurumuVerisi?, izinVar: Boolean, izinIste: ()
 @Composable
 fun SaglikPaneli(adimSayisi: Long?, durumMesaji: String, onSaglikKartTiklama: () -> Unit) {
     Column {
-        Text(text = "Sağlık Özeti", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Sağlık Özeti", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             SaglikKarti(
@@ -292,12 +305,13 @@ fun SaglikKarti(
 ) {
     Card(
         modifier = modifier.then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Icon(ikon, contentDescription = baslik, modifier = Modifier.size(24.dp))
+            Icon(ikon, contentDescription = baslik, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = deger, style = MaterialTheme.typography.titleMedium)
+            Text(text = deger, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(text = baslik, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -305,9 +319,13 @@ fun SaglikKarti(
 
 @Composable
 fun OneriKarti() {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Bugün için öneri", style = MaterialTheme.typography.titleMedium)
+            Text(text = "Bugün için öneri", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Henüz yeterli veri yok, kullanmaya devam ettikçe kişisel öneriler burada görünecek.",
@@ -318,25 +336,55 @@ fun OneriKarti() {
     }
 }
 
-// ==================== ANİMASYONLU SOHBET BÖLÜMÜ ====================
+// ==================== ZENGİN SOHBET VE EYLEM BÖLÜMÜ ====================
 
 data class Mesaj(
     val id: String = java.util.UUID.randomUUID().toString(),
     val metin: String,
-    val gonderenKullaniciMi: Boolean
+    val gonderenKullaniciMi: Boolean,
+    val saat: String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 )
 
 @Composable
 fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     var mesajMetni by remember { mutableStateOf("") }
     val mesajlar = remember {
         mutableStateListOf(
-            Mesaj(metin = "Merhaba! Size nasıl yardımcı olabilirim?", gonderenKullaniciMi = false)
+            Mesaj(metin = "Merhaba! Bana seslenebilir veya komut verebilirsin.", gonderenKullaniciMi = false)
         )
     }
     var yukleniyor by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    val cihazEylemiIsle: (String) -> String? = { metin ->
+        val kucukMetin = metin.lowercase()
+        when {
+            kucukMetin.contains("whatsapp") && kucukMetin.contains("mesaj") -> {
+                // WhatsApp Mesaj Senaryosu
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW)
+                    intent.data = Uri.parse("https://api.whatsapp.com/send?text=" + Uri.encode(metin))
+                    context.startActivity(intent)
+                    "WhatsApp yönlendirmesi başlatıldı."
+                } catch (e: Exception) {
+                    "WhatsApp cihazınızda bulunamadı."
+                }
+            }
+            kucukMetin.contains("diziwatch") || kucukMetin.contains("anime") -> {
+                // Diziwatch / Anime Senaryosu
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://diziwatch.net"))
+                    context.startActivity(intent)
+                    "Diziwatch açılıyor, en son izlediğiniz içeriğe yönlendiriliyorsunuz..."
+                } catch (e: Exception) {
+                    "Web tarayıcı açılamadı."
+                }
+            }
+            else -> null
+        }
+    }
 
     val mesajGonder = { metin: String ->
         if (metin.isNotBlank()) {
@@ -347,13 +395,13 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
 
             scope.launch {
                 listState.animateScrollToItem(mesajlar.size - 1)
-                delay(1200)
+                delay(1000)
 
-                val yanit = when {
-                    metin.contains("adım", ignoreCase = true) -> "Bugünkü adım sayınızı Sağlık Özeti kartından takip edebilirsiniz."
-                    metin.contains("hava", ignoreCase = true) -> "Konumunuza göre hava durumu Ana Sayfada görüntülenmektedir."
-                    metin.contains("su", ignoreCase = true) -> "Günlük su hedefinize ulaşmak için saat başı bir bardak su içmeyi unutmayın!"
-                    else -> "Anladım, bu konuda size yardımcı olmak için arka planda çalışıyorum."
+                val eylemSonucu = cihazEylemiIsle(metin)
+                val yanit = eylemSonucu ?: when {
+                    metin.contains("adım", ignoreCase = true) -> "Bugünkü adım verinizi Ana Sayfadaki Sağlık Özeti paneli üzerinden görebilirsiniz."
+                    metin.contains("hava", ignoreCase = true) -> "Anlık konum hava durumu kartı Ana Sayfada güncel olarak listelenmektedir."
+                    else -> "Komut anlaşıldı, işlem cihaz üzerinde gerçekleştiriliyor."
                 }
 
                 mesajlar.add(Mesaj(metin = yanit, gonderenKullaniciMi = false))
@@ -368,38 +416,25 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Üst Başlık
         Surface(
-            tonalElevation = 2.dp,
+            tonalElevation = 3.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    modifier = Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.SmartToy,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Icon(Icons.Outlined.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
+                    Text(text = "Kişisel Asistan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        text = "Kişisel Asistan",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = if (yukleniyor) "Yazıyor..." else "Çevrimiçi",
+                        text = if (yukleniyor) "İşlem Yapılıyor..." else "Sesli/Yazılı Dinlemede",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (yukleniyor) MaterialTheme.colorScheme.primary else Color.Gray
                     )
@@ -407,13 +442,9 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
-        // Mesaj Listesi
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
@@ -421,51 +452,34 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInVertically(
-                        initialOffsetY = { it / 2 },
-                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                    ) + fadeIn(animationSpec = tween(300))
+                        initialOffsetY = { it / 3 },
+                        animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 ) {
                     MesajBalon(mesaj = mesaj)
                 }
             }
             if (yukleniyor) {
-                item {
-                    YaziyorGostergesi()
-                }
+                item { YaziyorGostergesi() }
             }
         }
 
-        // Hızlı Kısayol Chip'leri
         LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val kisayollar = listOf("📊 Adım Sayım", "🌦️ Hava Durumu", "💧 Su İçeceğim", "💡 Öneri Ver")
+            val kisayollar = listOf("💬 WhatsApp'tan yaz", "🎬 Diziwatch Aç", "📊 Adım Sayım", "🌦️ Hava Durumu")
             items(kisayollar) { kisayol ->
-                AssistChip(
-                    onClick = { mesajGonder(kisayol) },
-                    label = { Text(kisayol, fontSize = 12.sp) }
-                )
+                AssistChip(onClick = { mesajGonder(kisayol) }, label = { Text(kisayol, fontSize = 12.sp) })
             }
         }
 
-        // Girdi Alanı
-        Surface(
-            tonalElevation = 8.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Surface(tonalElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = mesajMetni,
                     onValueChange = { mesajMetni = it },
-                    placeholder = { Text("Bir mesaj yazın...") },
+                    placeholder = { Text("Bir mesaj veya komut verin...") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(24.dp),
                     maxLines = 3,
@@ -474,15 +488,12 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 IconButton(
-                    onClick = { mesajGonder(mesajMetni) },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                    onClick = { if (mesajMetni.isNotBlank()) mesajGonder(mesajMetni) },
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.Send,
-                        contentDescription = "Gönder",
+                        imageVector = if (mesajMetni.isNotBlank()) Icons.AutoMirrored.Outlined.Send else Icons.Outlined.Mic,
+                        contentDescription = "Gönder/Dinle",
                         tint = MaterialTheme.colorScheme.onPrimary
                     )
                 }
@@ -495,90 +506,129 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
 fun YaziyorGostergesi() {
     val infiniteTransition = rememberInfiniteTransition(label = "pulsing")
     val scale by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        initialValue = 0.6f, targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(animation = tween(600, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse),
         label = "scale"
     )
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = "Asistan yanıt üretiyor...",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary
-        )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)) {
+        Box(modifier = Modifier.size(10.dp).scale(scale).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = "Asistan çalışıyor...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
     }
 }
 
 @Composable
 fun MesajBalon(mesaj: Mesaj) {
     val hiza = if (mesaj.gonderenKullaniciMi) Alignment.CenterEnd else Alignment.CenterStart
-    val arkaPlanRengi = if (mesaj.gonderenKullaniciMi) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
-    val yaziRengi = if (mesaj.gonderenKullaniciMi) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val koseKavisleri = if (mesaj.gonderenKullaniciMi) {
-        RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp)
-    } else {
-        RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp)
-    }
+    val arkaPlanRengi = if (mesaj.gonderenKullaniciMi) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val yaziRengi = if (mesaj.gonderenKullaniciMi) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val koseKavisleri = if (mesaj.gonderenKullaniciMi) RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp) else RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp)
 
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = hiza
-    ) {
-        Surface(
-            color = arkaPlanRengi,
-            shape = koseKavisleri,
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Text(
-                text = mesaj.metin,
-                color = yaziRengi,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-            )
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = hiza) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = if (mesaj.gonderenKullaniciMi) Arrangement.End else Arrangement.Start) {
+            if (!mesaj.gonderenKullaniciMi) {
+                Box(modifier = Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.SmartToy, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+
+            Column(horizontalAlignment = if (mesaj.gonderenKullaniciMi) Alignment.End else Alignment.Start) {
+                Surface(color = arkaPlanRengi, shape = koseKavisleri, modifier = Modifier.widthIn(max = 280.dp)) {
+                    Text(text = mesaj.metin, color = yaziRengi, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(text = mesaj.saat, style = MaterialTheme.typography.labelSmall, color = Color.Gray, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 4.dp))
+            }
         }
     }
 }
 
-@Composable
-fun NfcTestEkrani(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val activity = context as? MainActivity
-    val okunanId = activity?.sonOkunanNfcId?.value
+// ==================== YENİ AYARLAR VE TETİKLEME KELİMESİ EKRANI ====================
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Text("NFC Kart Okuma Testi", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("Kartını telefonun arkasına dokundur.")
+@Composable
+fun AyarlarEkrani(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val pref = remember { context.getSharedPreferences("AsistanAyarlari", Context.MODE_PRIVATE) }
+    var tetiklemeKelimesi by remember { mutableStateOf(pref.getString("wake_word", "Hey Asistan") ?: "Hey Asistan") }
+    var sesliYanitAktif by remember { mutableStateOf(pref.getBoolean("sesli_yanit", true)) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("Asistan Ayarları", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        Card(shape = RoundedCornerShape(16.dp)) {
-            Text(
-                text = okunanId ?: "Henüz kart okunmadı",
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyLarge
-            )
+
+        // Tetikleme Kelimesi Kartı
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Özel Tetikleme Kelimesi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Asistanı sesle uyandırmak için kullanacağınız kelime.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = tetiklemeKelimesi,
+                    onValueChange = {
+                        tetiklemeKelimesi = it
+                        pref.edit().putString("wake_word", it).apply()
+                    },
+                    label = { Text("Tetikleme Kelimesi") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Cihaz İzinleri ve Erişilebilirlik Paneli
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Cihaz Kontrol İzinleri", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("WhatsApp ve Diğer uygulamalarda otomatik işlem yapabilmek için erişilebilirlik izni gereklidir.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.Security, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Erişilebilirlik İznini Aç")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Sesli Yanıt Ayarı
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sesli Yanıt (TTS)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Asistan yanıtları sesli okusun.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+                Switch(
+                    checked = sesliYanitAktif,
+                    onCheckedChange = {
+                        sesliYanitAktif = it
+                        pref.edit().putBoolean("sesli_yanit", it).apply()
+                    }
+                )
+            }
         }
     }
 }
