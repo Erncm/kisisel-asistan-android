@@ -53,6 +53,7 @@ import androidx.health.connect.client.PermissionController
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -362,7 +363,6 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
         val kucukMetin = metin.lowercase()
         when {
             kucukMetin.contains("whatsapp") && kucukMetin.contains("mesaj") -> {
-                // WhatsApp Mesaj Senaryosu
                 try {
                     val intent = Intent(Intent.ACTION_VIEW)
                     intent.data = Uri.parse("https://api.whatsapp.com/send?text=" + Uri.encode(metin))
@@ -373,7 +373,6 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
                 }
             }
             kucukMetin.contains("diziwatch") || kucukMetin.contains("anime") -> {
-                // Diziwatch / Anime Senaryosu
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://diziwatch.net"))
                     context.startActivity(intent)
@@ -401,7 +400,7 @@ fun GelismisSohbetEkrani(modifier: Modifier = Modifier) {
                 val yanit = eylemSonucu ?: when {
                     metin.contains("adım", ignoreCase = true) -> "Bugünkü adım verinizi Ana Sayfadaki Sağlık Özeti paneli üzerinden görebilirsiniz."
                     metin.contains("hava", ignoreCase = true) -> "Anlık konum hava durumu kartı Ana Sayfada güncel olarak listelenmektedir."
-                    else -> "Komut anlaşıldı, işlem cihaz üzerinde gerçekleştiriliyor."
+                    else -> "Komut anlaşıldı, cihaz üzerinde işleniyor."
                 }
 
                 mesajlar.add(Mesaj(metin = yanit, gonderenKullaniciMi = false))
@@ -545,7 +544,7 @@ fun MesajBalon(mesaj: Mesaj) {
     }
 }
 
-// ==================== YENİ AYARLAR VE TETİKLEME KELİMESİ EKRANI ====================
+// ==================== YENİ AYARLAR VE YEREL MODEL YÖNETİMİ ====================
 
 @Composable
 fun AyarlarEkrani(modifier: Modifier = Modifier) {
@@ -553,6 +552,28 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
     val pref = remember { context.getSharedPreferences("AsistanAyarlari", Context.MODE_PRIVATE) }
     var tetiklemeKelimesi by remember { mutableStateOf(pref.getString("wake_word", "Hey Asistan") ?: "Hey Asistan") }
     var sesliYanitAktif by remember { mutableStateOf(pref.getBoolean("sesli_yanit", true)) }
+    var yukluModelAdi by remember { mutableStateOf(pref.getString("selected_model_name", "Yüklü Model Yok") ?: "Yüklü Model Yok") }
+
+    // Cihazdan Model Dosyası Seçme İşi (.bin veya .task)
+    val dosyaSecici = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            val dosyaAdi = "local_model.bin"
+            val hedefDosya = File(context.filesDir, dosyaAdi)
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    hedefDosya.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                pref.edit().putString("selected_model_name", "Cihaz İçi Model (Özel)").apply()
+                yukluModelAdi = "Cihaz İçi Model (Özel)"
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -561,6 +582,32 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
             .padding(16.dp)
     ) {
         Text("Asistan Ayarları", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Yerel Yapay Zeka (Local AI) Model Paneli
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Yerel AI Model Yönetimi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Offline çalışacak hafif LLM modelini cihazınıza aktarın veya yükleyin.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Aktif Model: $yukluModelAdi", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { dosyaSecici.launch("*/*") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Outlined.Folder, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Dosya Seç (.bin)")
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Tetikleme Kelimesi Kartı
@@ -586,12 +633,12 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Cihaz İzinleri ve Erişilebilirlik Paneli
+        // Cihaz Kontrol İzinleri
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Cihaz Kontrol İzinleri", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("WhatsApp ve Diğer uygulamalarda otomatik işlem yapabilmek için erişilebilirlik izni gereklidir.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text("WhatsApp ve uygulamalarda otomatik işlem yapabilmek için erişilebilirlik iznini etkinleştirin.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
