@@ -1,68 +1,45 @@
 package com.example.kisisel_asistan
 
-import android.content.Intent
-import android.nfc.NfcAdapter
-import android.nfc.Tag
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.example.kisisel_asistan.ui.theme.KisiselasistanTheme
 
 class MainActivity : ComponentActivity() {
 
-    private var nfcAdapter: NfcAdapter? = null
-    val sonOkunanNfcId = mutableStateOf<String?>(null)
-    val odakModuAktif = mutableStateOf(false)
-
-    private val ODAK_KART_ID = "4B63B1B0"
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+
+        // Android 13+ Bildirim ve Konum izinlerini güvenli şekilde iste
+        val permissionsToRequest = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+
         setContent {
-            KisiselasistanTheme {
+            MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AnaEkranIskelet()
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = "Kişisel Asistan Çalışıyor")
+                    }
                 }
-            }
-        }
-        nfcIntentiIsle(intent)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        nfcAdapter?.let {
-            val pendingIntent = android.app.PendingIntent.getActivity(
-                this, 0, Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                android.app.PendingIntent.FLAG_MUTABLE
-            )
-            it.enableForegroundDispatch(this, pendingIntent, null, null)
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        nfcAdapter?.disableForegroundDispatch(this)
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        nfcIntentiIsle(intent)
-    }
-
-    private fun nfcIntentiIsle(intent: Intent?) {
-        val tag: Tag? = intent?.getParcelableExtra(NfcAdapter.EXTRA_TAG)
-        if (tag != null) {
-            val id = tag.id.joinToString("") { "%02X".format(it) }
-            sonOkunanNfcId.value = id
-            if (id == ODAK_KART_ID) {
-                odakModuAktif.value = !odakModuAktif.value
             }
         }
     }
