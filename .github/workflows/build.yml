@@ -18,12 +18,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Gradle çalıştırma izni ver
-        run: chmod +x ./gradlew || true
-
-      - name: Android lisanslarını kabul et
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
       - name: Debug APK derle
         run: gradle assembleDebug
 
