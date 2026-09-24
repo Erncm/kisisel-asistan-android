@@ -13,6 +13,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        TTSYoneticisi.baslat(this)
         setContent {
             KisiselasistanTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -20,5 +21,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        TTSYoneticisi.kapat()
+        super.onDestroy()
     }
 }

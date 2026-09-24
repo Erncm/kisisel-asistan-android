@@ -22,6 +22,8 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.VolumeOff
+import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -104,11 +106,19 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     var yukleniyor by remember { mutableStateOf(false) }
     var durumMesaji by remember { mutableStateOf<String?>(null) }
     var gecmisAcik by remember { mutableStateOf(false) }
+    var sesliOkumaAcik by remember { mutableStateOf(false) }
     val listeDurumu = rememberLazyListState()
 
     LaunchedEffect(mesajlar.size) {
         if (mesajlar.isNotEmpty()) {
             listeDurumu.animateScrollToItem(mesajlar.size - 1)
+        }
+    }
+
+    fun asistanYanitiEkle(metin: String) {
+        mesajlar.add(ChatMesaj(metin, benMi = false))
+        if (sesliOkumaAcik) {
+            TTSYoneticisi.oku(metin)
         }
     }
 
@@ -130,7 +140,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 gemeniDenendi = true
                 val sonuc = geminiYanitAl(anahtar, mesajlar.toList())
                 if (sonuc.isSuccess) {
-                    mesajlar.add(ChatMesaj(sonuc.getOrDefault(""), benMi = false))
+                    asistanYanitiEkle(sonuc.getOrDefault(""))
                     yukleniyor = false
                     return@launch
                 }
@@ -141,7 +151,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 val hazir = YerelModel.hazirla(context)
                 if (hazir) {
                     val yanit = YerelModel.yanitAl(gonderilenMetin)
-                    mesajlar.add(ChatMesaj(yanit, benMi = false))
+                    asistanYanitiEkle(yanit)
                     durumMesaji = null
                 } else {
                     durumMesaji = "Yerel model yüklenemedi"
@@ -162,6 +172,15 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         ) {
             Text("Sohbet", style = MaterialTheme.typography.titleMedium)
             Row {
+                IconButton(onClick = {
+                    sesliOkumaAcik = !sesliOkumaAcik
+                    if (!sesliOkumaAcik) TTSYoneticisi.durdur()
+                }) {
+                    Icon(
+                        if (sesliOkumaAcik) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
+                        contentDescription = "Sesli okuma"
+                    )
+                }
                 IconButton(onClick = { gecmisAcik = true }) {
                     Icon(Icons.Outlined.History, contentDescription = "Geçmiş")
                 }
@@ -257,7 +276,8 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
 fun MesajBalonu(mesaj: ChatMesaj) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (mesaj.benMi) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (mesaj.benMi) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -266,6 +286,11 @@ fun MesajBalonu(mesaj: ChatMesaj) {
             )
         ) {
             Text(text = mesaj.icerik, modifier = Modifier.padding(12.dp))
+        }
+        if (!mesaj.benMi) {
+            IconButton(onClick = { TTSYoneticisi.oku(mesaj.icerik) }) {
+                Icon(Icons.Outlined.VolumeUp, contentDescription = "Sesli oku", modifier = Modifier.width(20.dp))
+            }
         }
     }
 }
