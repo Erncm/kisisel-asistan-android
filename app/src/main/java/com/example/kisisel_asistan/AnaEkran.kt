@@ -1,7 +1,6 @@
 package com.example.kisisel_asistan
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +18,7 @@ import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,13 +26,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.outlined.Send
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -195,12 +195,22 @@ fun MesajBalonu(mesaj: ChatMesaj) {
 @Composable
 fun AyarlarEkrani(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val kapsam = rememberCoroutineScope()
+
     var anahtar by remember { mutableStateOf(apiAnahtariOku(context)) }
     var kaydedildi by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    var modelMevcut by remember { mutableStateOf(modelVarMi(context)) }
+    var indiriliyor by remember { mutableStateOf(false) }
+    var ilerlemeYuzdesi by remember { mutableStateOf(0) }
+    var modelHata by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp)
+    ) {
         Text("Ayarlar", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(16.dp))
+
         Text("Gemini API Anahtarı", style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
@@ -219,6 +229,59 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
         if (kaydedildi) {
             Spacer(modifier = Modifier.height(8.dp))
             Text("Kaydedildi ✓", color = MaterialTheme.colorScheme.primary)
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Text("Yerel AI Modeli (Çevrimdışı)", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                when {
+                    modelMevcut -> {
+                        Text("Model telefonda kayıtlı ✓", color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = {
+                            modelSil(context)
+                            modelMevcut = false
+                        }) {
+                            Text("Modeli Sil")
+                        }
+                    }
+                    indiriliyor -> {
+                        Text("İndiriliyor: %$ilerlemeYuzdesi")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { ilerlemeYuzdesi / 100f },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    else -> {
+                        Text("Model telefonda yok (~1GB, Wi-Fi önerilir)")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = {
+                            indiriliyor = true
+                            modelHata = null
+                            kapsam.launch {
+                                val sonuc = modelIndir(context) { yuzde ->
+                                    ilerlemeYuzdesi = yuzde
+                                }
+                                indiriliyor = false
+                                when (sonuc) {
+                                    is IndirmeSonucu.Basarili -> modelMevcut = true
+                                    is IndirmeSonucu.Hata -> modelHata = sonuc.mesaj
+                                }
+                            }
+                        }) {
+                            Text("Modeli İndir")
+                        }
+                    }
+                }
+                if (modelHata != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Hata: $modelHata", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
 }

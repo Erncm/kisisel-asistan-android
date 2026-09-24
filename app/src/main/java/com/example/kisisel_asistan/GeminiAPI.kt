@@ -13,7 +13,7 @@ data class ChatMesaj(val icerik: String, val benMi: Boolean)
 suspend fun geminiYanitAl(apiKey: String, gecmis: List<ChatMesaj>): Result<String> {
     return withContext(Dispatchers.IO) {
         try {
-            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey")
             val baglanti = url.openConnection() as HttpURLConnection
             baglanti.requestMethod = "POST"
             baglanti.setRequestProperty("Content-Type", "application/json")
