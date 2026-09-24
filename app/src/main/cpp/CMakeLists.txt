@@ -12,6 +12,10 @@ add_library(kisiselasistan_native SHARED
     native-lib.cpp
 )
 
+target_include_directories(kisiselasistan_native PRIVATE
+    llama.cpp/include
+)
+
 find_library(log-lib log)
 
 target_link_libraries(kisiselasistan_native

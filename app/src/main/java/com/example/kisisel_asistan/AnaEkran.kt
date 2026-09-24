@@ -102,7 +102,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     val mesajlar = SohbetDurumu.aktifMesajlar
     var girdi by remember { mutableStateOf("") }
     var yukleniyor by remember { mutableStateOf(false) }
-    var hata by remember { mutableStateOf<String?>(null) }
+    var durumMesaji by remember { mutableStateOf<String?>(null) }
     var gecmisAcik by remember { mutableStateOf(false) }
     val listeDurumu = rememberLazyListState()
 
@@ -113,27 +113,44 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     }
 
     fun gonder() {
-        val anahtar = apiAnahtariOku(context)
-        if (anahtar.isBlank()) {
-            hata = "Önce Ayarlar sekmesinden Gemini API anahtarını gir"
-            return
-        }
         if (girdi.isBlank()) return
 
         val kullaniciMesaji = ChatMesaj(girdi.trim(), benMi = true)
+        val gonderilenMetin = girdi.trim()
         mesajlar.add(kullaniciMesaji)
         girdi = ""
-        hata = null
+        durumMesaji = null
         yukleniyor = true
 
         kapsam.launch {
-            val sonuc = geminiYanitAl(anahtar, mesajlar.toList())
-            yukleniyor = false
-            sonuc.onSuccess { yanit ->
-                mesajlar.add(ChatMesaj(yanit, benMi = false))
-            }.onFailure { e ->
-                hata = e.message ?: "Bilinmeyen hata"
+            val anahtar = apiAnahtariOku(context)
+            var gemeniDenendi = false
+
+            if (anahtar.isNotBlank()) {
+                gemeniDenendi = true
+                val sonuc = geminiYanitAl(anahtar, mesajlar.toList())
+                if (sonuc.isSuccess) {
+                    mesajlar.add(ChatMesaj(sonuc.getOrDefault(""), benMi = false))
+                    yukleniyor = false
+                    return@launch
+                }
             }
+
+            if (modelVarMi(context)) {
+                durumMesaji = if (gemeniDenendi) "İnternet yok, yerel modele geçiliyor..." else "Yerel model kullanılıyor..."
+                val hazir = YerelModel.hazirla(context)
+                if (hazir) {
+                    val yanit = YerelModel.yanitAl(gonderilenMetin)
+                    mesajlar.add(ChatMesaj(yanit, benMi = false))
+                    durumMesaji = null
+                } else {
+                    durumMesaji = "Yerel model yüklenemedi"
+                }
+            } else {
+                durumMesaji = if (gemeniDenendi) "İnternet yok ve yerel model kurulu değil (Ayarlar'dan indirebilirsin)" else "Önce Ayarlar'dan Gemini anahtarı gir ya da yerel modeli indir"
+            }
+
+            yukleniyor = false
         }
     }
 
@@ -168,9 +185,9 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             CircularProgressIndicator(modifier = Modifier.padding(8.dp))
         }
 
-        if (hata != null) {
+        if (durumMesaji != null) {
             Text(
-                text = hata ?: "",
+                text = durumMesaji ?: "",
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )

@@ -5,4 +5,7 @@ object NativeBridge {
         System.loadLibrary("kisiselasistan_native")
     }
     external fun testMesaj(): String
+    external fun modelYukle(modelYolu: String): Boolean
+    external fun yanitUret(girdiMetni: String): String
+    external fun modelKapat()
 }
