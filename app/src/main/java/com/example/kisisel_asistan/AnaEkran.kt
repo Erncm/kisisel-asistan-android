@@ -277,6 +277,8 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = { }) { Text("Native Test") }
                 if (modelHata != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Hata: $modelHata", color = MaterialTheme.colorScheme.error)

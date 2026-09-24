@@ -11,12 +11,21 @@ jobs:
     steps:
       - name: Kodu al
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: JDK 17 kur
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Android lisanslarını kabul et
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: NDK ve CMake kur
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125" "cmake;3.22.1" || true
 
       - name: Debug APK derle
         run: gradle assembleDebug
