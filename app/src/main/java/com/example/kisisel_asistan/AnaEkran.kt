@@ -14,12 +14,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,7 +40,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -97,10 +99,11 @@ fun AnaEkranIskelet() {
 fun SohbetEkrani(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val kapsam = rememberCoroutineScope()
-    val mesajlar = remember { mutableStateListOf<ChatMesaj>() }
+    val mesajlar = SohbetDurumu.aktifMesajlar
     var girdi by remember { mutableStateOf("") }
     var yukleniyor by remember { mutableStateOf(false) }
     var hata by remember { mutableStateOf<String?>(null) }
+    var gecmisAcik by remember { mutableStateOf(false) }
     val listeDurumu = rememberLazyListState()
 
     LaunchedEffect(mesajlar.size) {
@@ -135,6 +138,22 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Sohbet", style = MaterialTheme.typography.titleMedium)
+            Row {
+                IconButton(onClick = { gecmisAcik = true }) {
+                    Icon(Icons.Outlined.History, contentDescription = "Geçmiş")
+                }
+                IconButton(onClick = { SohbetDurumu.yeniSohbetBaslat() }) {
+                    Icon(Icons.Outlined.Add, contentDescription = "Yeni sohbet")
+                }
+            }
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
             state = listeDurumu
@@ -172,6 +191,48 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 Icon(Icons.Outlined.Send, contentDescription = "Gönder")
             }
         }
+    }
+
+    if (gecmisAcik) {
+        AlertDialog(
+            onDismissRequest = { gecmisAcik = false },
+            confirmButton = {
+                Button(onClick = { gecmisAcik = false }) { Text("Kapat") }
+            },
+            title = { Text("Sohbet Geçmişi") },
+            text = {
+                if (SohbetDurumu.gecmisOturumlar.isEmpty()) {
+                    Text("Henüz geçmiş sohbet yok")
+                } else {
+                    Column {
+                        SohbetDurumu.gecmisOturumlar.forEach { oturum ->
+                            val ozet = oturum.mesajlar.firstOrNull()?.icerik?.take(40) ?: "Boş sohbet"
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp)
+                                ) {
+                                    Text(ozet, style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(onClick = {
+                                        SohbetDurumu.oturumuYukle(oturum)
+                                        gecmisAcik = false
+                                    }) {
+                                        Text("Bu sohbete dön")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -277,8 +338,6 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { }) { Text("Native Test") }
                 if (modelHata != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Hata: $modelHata", color = MaterialTheme.colorScheme.error)
