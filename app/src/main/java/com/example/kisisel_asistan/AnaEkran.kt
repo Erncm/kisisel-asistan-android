@@ -137,7 +137,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         if (verildi) {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR").toString())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Dinliyorum...")
             }
             sesTanimaLauncher.launch(intent)
@@ -149,7 +149,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         if (izinVarMi) {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR").toString())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Dinliyorum...")
             }
             sesTanimaLauncher.launch(intent)
