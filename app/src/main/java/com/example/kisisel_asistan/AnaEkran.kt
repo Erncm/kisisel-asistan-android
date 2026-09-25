@@ -1,5 +1,11 @@
 package com.example.kisisel_asistan
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +26,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Settings
@@ -52,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 sealed class Sekme(val baslik: String, val ikon: ImageVector) {
@@ -109,6 +118,43 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     var gecmisAcik by remember { mutableStateOf(false) }
     var sesliOkumaAcik by remember { mutableStateOf(false) }
     val listeDurumu = rememberLazyListState()
+
+    val sesTanimaLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { sonuc ->
+        val metinler = sonuc.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+        val tanininMetin = metinler?.firstOrNull()
+        if (!tanininMetin.isNullOrBlank()) {
+            girdi = if (girdi.isBlank()) tanininMetin else "$girdi $tanininMetin"
+        }
+    }
+
+    val mikrofonIzinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { verildi ->
+        if (verildi) {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR").toString())
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Dinliyorum...")
+            }
+            sesTanimaLauncher.launch(intent)
+        }
+    }
+
+    fun sesleGirdiBaslat() {
+        val izinVarMi = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (izinVarMi) {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("tr", "TR").toString())
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Dinliyorum...")
+            }
+            sesTanimaLauncher.launch(intent)
+        } else {
+            mikrofonIzinIstegi.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     LaunchedEffect(mesajlar.size) {
         if (mesajlar.isNotEmpty()) {
@@ -245,7 +291,10 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Bir şeyler yaz... (\"hatırla: ...\" ile not al)") }
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(onClick = { sesleGirdiBaslat() }) {
+                Icon(Icons.Outlined.Mic, contentDescription = "Sesle yaz")
+            }
             IconButton(onClick = { gonder() }) {
                 Icon(Icons.Outlined.Send, contentDescription = "Gönder")
             }
