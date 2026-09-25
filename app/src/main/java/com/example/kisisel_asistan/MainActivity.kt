@@ -14,6 +14,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         TTSYoneticisi.baslat(this)
+        SohbetDurumu.baslat(this)
+        HafizaDeposu.baslat(this)
         setContent {
             KisiselasistanTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {

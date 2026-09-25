@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
@@ -116,18 +117,28 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     }
 
     fun asistanYanitiEkle(metin: String) {
-        mesajlar.add(ChatMesaj(metin, benMi = false))
+        SohbetDurumu.mesajEkle(ChatMesaj(metin, benMi = false))
         if (sesliOkumaAcik) {
             TTSYoneticisi.oku(metin)
         }
     }
 
     fun gonder() {
-        if (girdi.isBlank()) return
+        val girdiTrim = girdi.trim()
+        if (girdiTrim.isBlank()) return
 
-        val kullaniciMesaji = ChatMesaj(girdi.trim(), benMi = true)
-        val gonderilenMetin = girdi.trim()
-        mesajlar.add(kullaniciMesaji)
+        if (hafizaKomutuMu(girdiTrim)) {
+            val oncekiMesaj = mesajlar.lastOrNull()?.icerik
+            val icerik = hafizaIcerigiCikar(girdiTrim, oncekiMesaj)
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
+            val kayit = HafizaDeposu.ekle(icerik)
+            SohbetDurumu.mesajEkle(ChatMesaj("Not edildi ✓ [${kayit.kod}]: ${kayit.ozet}", benMi = false))
+            girdi = ""
+            return
+        }
+
+        val kullaniciMesaji = ChatMesaj(girdiTrim, benMi = true)
+        SohbetDurumu.mesajEkle(kullaniciMesaji)
         girdi = ""
         durumMesaji = null
         yukleniyor = true
@@ -135,10 +146,19 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         kapsam.launch {
             val anahtar = apiAnahtariOku(context)
             var gemeniDenendi = false
+            val hafizaOzeti = HafizaDeposu.hepsiniOzetGetir()
 
             if (anahtar.isNotBlank()) {
                 gemeniDenendi = true
-                val sonuc = geminiYanitAl(anahtar, mesajlar.toList())
+                val gonderilecekListe = if (hafizaOzeti.isNotBlank()) {
+                    listOf(
+                        ChatMesaj("Kullanıcı hakkında bildiğim notlar:\n$hafizaOzeti", benMi = true),
+                        ChatMesaj("Anladım, bu bilgileri göz önünde bulunduracağım.", benMi = false)
+                    ) + mesajlar.toList()
+                } else {
+                    mesajlar.toList()
+                }
+                val sonuc = geminiYanitAl(anahtar, gonderilecekListe)
                 if (sonuc.isSuccess) {
                     asistanYanitiEkle(sonuc.getOrDefault(""))
                     yukleniyor = false
@@ -150,7 +170,10 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 durumMesaji = if (gemeniDenendi) "İnternet yok, yerel modele geçiliyor..." else "Yerel model kullanılıyor..."
                 val hazir = YerelModel.hazirla(context)
                 if (hazir) {
-                    val yanit = YerelModel.yanitAl(gonderilenMetin)
+                    val girdiMetniSon = if (hafizaOzeti.isNotBlank()) {
+                        "[Hafıza notların]\n$hafizaOzeti\n\nKullanıcı: $girdiTrim"
+                    } else girdiTrim
+                    val yanit = YerelModel.yanitAl(girdiMetniSon)
                     asistanYanitiEkle(yanit)
                     durumMesaji = null
                 } else {
@@ -220,7 +243,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 value = girdi,
                 onValueChange = { girdi = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Bir şeyler yaz...") }
+                placeholder = { Text("Bir şeyler yaz... (\"hatırla: ...\" ile not al)") }
             )
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(onClick = { gonder() }) {
@@ -383,6 +406,37 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
                 if (modelHata != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Hata: $modelHata", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Text("Uzun Süreli Hafıza", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (HafizaDeposu.kayitlar.isEmpty()) {
+            Text("Henüz kayıtlı bir bilgi yok — sohbette \"hatırla: ...\" yazarak ekleyebilirsin", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Column {
+                HafizaDeposu.kayitlar.forEach { kayit ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("[${kayit.kod}]", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                Text(kayit.ozet, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            IconButton(onClick = { HafizaDeposu.sil(kayit.kod) }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = "Sil")
+                            }
+                        }
+                    }
                 }
             }
         }
