@@ -13,6 +13,15 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
     private var asamaNo = 0
     private var calisiyorMu = false
 
+    companion object {
+        var aktifOrnek: AsistanErisilebilirlikServisi? = null
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        aktifOrnek = this
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val paketAdi = event?.packageName?.toString() ?: return
         if (paketAdi != "com.whatsapp") return
@@ -24,6 +33,8 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
         asamaNo = 0
         adimlariBaslat(gorev)
     }
+
+    fun ekranKokunuGetir(): AccessibilityNodeInfo? = rootInActiveWindow
 
     private fun adimlariBaslat(gorev: WhatsAppGorevi) {
         OtomasyonKuyrugu.durum = "Sohbet listesi aranıyor..."
@@ -123,4 +134,9 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    override fun onDestroy() {
+        super.onDestroy()
+        aktifOrnek = null
+    }
 }

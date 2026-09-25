@@ -528,4 +528,36 @@ fun OtomasyonAyarBolumu(modifier: Modifier = Modifier) {
     }
         Spacer(modifier = Modifier.height(32.dp))
         OtomasyonAyarBolumu()
+        Spacer(modifier = Modifier.height(32.dp))
+        EkranOkumaTestBolumu()
     }
+
+@Composable
+fun EkranOkumaTestBolumu(modifier: Modifier = Modifier) {
+    var sonuc by remember { mutableStateOf("Henüz taranmadı") }
+
+    Column(modifier = modifier) {
+        Text("Ekran Okuma Testi", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Başka bir uygulamayı öne getirip buraya dönmeden bu butona basamazsın; bu yüzden önce erişilebilirlik izninin açık olduğundan emin ol, sonra Ana Sayfa'dayken dene.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = {
+            val servis = AsistanErisilebilirlikServisi.aktifOrnek
+            sonuc = if (servis == null) {
+                "Servis aktif değil - önce erişilebilirlik iznini aç"
+            } else {
+                EkranOkuyucu.ekraniListele(servis.ekranKokunuGetir())
+            }
+        }) {
+            Text("Şu Anki Ekranı Tara")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(shape = RoundedCornerShape(12.dp)) {
+            Text(sonuc, modifier = Modifier.padding(12.dp))
+        }
+    }
+}

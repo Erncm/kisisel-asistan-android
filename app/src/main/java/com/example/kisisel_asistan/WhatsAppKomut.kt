@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 
 private val WHATSAPP_DESENI = Regex(
-    "whatsap\\S*\\s+(\\S+)['’]?(e|a|ye|ya)\\s+(.+?)\\s+yaz",
+    "whatsap\\S*\\s+(\\S+?)\\s+(.+?)\\s+yaz",
     RegexOption.IGNORE_CASE
 )
 
@@ -14,8 +14,9 @@ fun whatsAppKomutuMu(mesaj: String): Boolean {
 
 fun whatsAppKomutunuCalistir(context: Context, mesaj: String): String? {
     val eslesme = WHATSAPP_DESENI.find(mesaj) ?: return null
-    val kisiAdi = eslesme.groupValues[1].trim().replaceFirstChar { it.uppercase() }
-    val mesajIcerigi = eslesme.groupValues[3].trim()
+    val kisiAdiHam = eslesme.groupValues[1].trim()
+    val kisiAdi = kisiAdiHam.trimEnd('e', 'a', 'ı', 'i', 'y', '\'').replaceFirstChar { it.uppercase() }
+    val mesajIcerigi = eslesme.groupValues[2].trim()
 
     OtomasyonKuyrugu.bekleyenWhatsAppGorevi = WhatsAppGorevi(kisiAdi, mesajIcerigi)
     OtomasyonKuyrugu.durum = "WhatsApp açılıyor..."
