@@ -79,6 +79,7 @@ val sekmeler = listOf(
     Sekme.Ayarlar
 )
 
+
 @Composable
 fun AnaEkranIskelet() {
     var seciliSekme by remember { mutableIntStateOf(0) }
@@ -106,6 +107,7 @@ fun AnaEkranIskelet() {
         }
     }
 }
+
 
 @Composable
 fun SohbetEkrani(modifier: Modifier = Modifier) {
@@ -172,6 +174,14 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     fun gonder() {
         val girdiTrim = girdi.trim()
         if (girdiTrim.isBlank()) return
+
+        if (whatsAppKomutuMu(girdiTrim)) {
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
+            val sonucMesaji = whatsAppKomutunuCalistir(context, girdiTrim)
+            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false))
+            girdi = ""
+            return
+        }
 
         if (hafizaKomutuMu(girdiTrim)) {
             val oncekiMesaj = mesajlar.lastOrNull()?.icerik
@@ -344,6 +354,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     }
 }
 
+
 @Composable
 fun MesajBalonu(mesaj: ChatMesaj) {
     Row(
@@ -366,6 +377,7 @@ fun MesajBalonu(mesaj: ChatMesaj) {
         }
     }
 }
+
 
 @Composable
 fun AyarlarEkrani(modifier: Modifier = Modifier) {
@@ -491,3 +503,29 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
         }
     }
 }
+
+@Composable
+fun OtomasyonAyarBolumu(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    Column(modifier = modifier) {
+        Text("WhatsApp Otomasyonu", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Sohbette \"whatsaptan Ahmet'e ... yaz\" gibi yazarak WhatsApp mesajı gönderebilirsin. Önce aşağıdaki izni açman gerekiyor.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }) {
+            Text("Erişilebilirlik İznini Aç")
+        }
+        if (OtomasyonKuyrugu.durum.isNotBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Son durum: ${OtomasyonKuyrugu.durum}", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+        Spacer(modifier = Modifier.height(32.dp))
+        OtomasyonAyarBolumu()
+    }
