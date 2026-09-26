@@ -19,7 +19,11 @@ class MainActivity : ComponentActivity() {
         UygulamaKatalogu.yukle(this)
         setContent {
             KisiselasistanTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = SamanthaTheme.bg,
+                    contentColor = SamanthaTheme.ink
+                ) {
                     AnaEkranIskelet()
                 }
             }

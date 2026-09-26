@@ -6,7 +6,15 @@ import android.content.pm.PackageManager
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,37 +22,32 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Send
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,52 +59,39 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import kotlin.math.hypot
 import kotlinx.coroutines.launch
-
-sealed class Sekme(val baslik: String, val ikon: ImageVector) {
-    object AnaSayfa : Sekme("Ana Sayfa", Icons.Outlined.Home)
-    object Sohbet : Sekme("Sohbet", Icons.Outlined.Chat)
-    object Saglik : Sekme("Sağlık", Icons.Outlined.Favorite)
-    object Ara : Sekme("Ara", Icons.Outlined.Search)
-    object Ayarlar : Sekme("Ayarlar", Icons.Outlined.Settings)
-}
-
-val sekmeler = listOf(
-    Sekme.AnaSayfa,
-    Sekme.Sohbet,
-    Sekme.Saglik,
-    Sekme.Ara,
-    Sekme.Ayarlar
-)
 
 @Composable
 fun AnaEkranIskelet() {
     var seciliSekme by remember { mutableIntStateOf(0) }
 
     Scaffold(
+        containerColor = SamanthaTheme.bg,
         bottomBar = {
-            NavigationBar {
-                sekmeler.forEachIndexed { index, sekme ->
-                    NavigationBarItem(
-                        selected = seciliSekme == index,
-                        onClick = { seciliSekme = index },
-                        icon = { Icon(sekme.ikon, contentDescription = sekme.baslik) },
-                        label = { Text(sekme.baslik) }
-                    )
-                }
-            }
+            LiquidBottomBar(selected = seciliSekme, onSelect = { seciliSekme = it })
         }
     ) { icPadding ->
-        when (seciliSekme) {
-            0 -> Text("Ana Sayfa ekranı", modifier = Modifier.padding(icPadding).padding(16.dp))
-            1 -> SohbetEkrani(Modifier.padding(icPadding))
-            2 -> Text("Sağlık ekranı", modifier = Modifier.padding(icPadding).padding(16.dp))
-            3 -> Text("Ara ekranı", modifier = Modifier.padding(icPadding).padding(16.dp))
-            4 -> AyarlarEkrani(Modifier.padding(icPadding))
+        Crossfade(targetState = seciliSekme, label = "tab-content") { tab ->
+            Box(modifier = Modifier.padding(icPadding).fillMaxSize()) {
+                when (tab) {
+                    0 -> Text("Ana Sayfa ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
+                    1 -> SohbetEkrani()
+                    2 -> Text("Sağlık ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
+                    3 -> Text("Ara ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
+                    4 -> AyarlarEkrani()
+                }
+            }
         }
     }
 }
@@ -113,6 +103,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     val mesajlar = SohbetDurumu.aktifMesajlar
     var girdi by remember { mutableStateOf("") }
     var yukleniyor by remember { mutableStateOf(false) }
+    var dusunmeMetni by remember { mutableStateOf("") }
     var durumMesaji by remember { mutableStateOf<String?>(null) }
     var gecmisAcik by remember { mutableStateOf(false) }
     var sesliOkumaAcik by remember { mutableStateOf(false) }
@@ -204,6 +195,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         girdi = ""
         durumMesaji = null
         yukleniyor = true
+        dusunmeMetni = "Düşünüyor"
 
         kapsam.launch {
             val anahtar = apiAnahtariOku(context)
@@ -212,6 +204,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
 
             if (anahtar.isNotBlank()) {
                 gemeniDenendi = true
+                dusunmeMetni = "Gemini'ye soruluyor"
                 val gonderilecekListe = if (hafizaOzeti.isNotBlank()) {
                     listOf(
                         ChatMesaj("Kullanıcı hakkında bildiğim notlar:\n$hafizaOzeti", benMi = true),
@@ -230,8 +223,10 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
 
             if (modelVarMi(context)) {
                 durumMesaji = if (gemeniDenendi) "İnternet yok, yerel modele geçiliyor..." else "Yerel model kullanılıyor..."
+                dusunmeMetni = "Yerel model yükleniyor"
                 val hazir = YerelModel.hazirla(context)
                 if (hazir) {
+                    dusunmeMetni = "Yerel model düşünüyor"
                     val girdiMetniSon = if (hafizaOzeti.isNotBlank()) {
                         "[Hafıza notların]\n$hafizaOzeti\n\nKullanıcı: $girdiTrim"
                     } else girdiTrim
@@ -255,7 +250,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Sohbet", style = MaterialTheme.typography.titleMedium)
+            Text("Sohbet", style = MaterialTheme.typography.titleMedium, color = SamanthaTheme.ink)
             Row {
                 IconButton(onClick = {
                     sesliOkumaAcik = !sesliOkumaAcik
@@ -263,14 +258,15 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                 }) {
                     Icon(
                         if (sesliOkumaAcik) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
-                        contentDescription = "Sesli okuma"
+                        contentDescription = "Sesli okuma",
+                        tint = SamanthaTheme.ink
                     )
                 }
                 IconButton(onClick = { gecmisAcik = true }) {
-                    Icon(Icons.Outlined.History, contentDescription = "Geçmiş")
+                    Icon(Icons.Outlined.History, contentDescription = "Geçmiş", tint = SamanthaTheme.ink)
                 }
                 IconButton(onClick = { SohbetDurumu.yeniSohbetBaslat() }) {
-                    Icon(Icons.Outlined.Add, contentDescription = "Yeni sohbet")
+                    Icon(Icons.Outlined.Add, contentDescription = "Yeni sohbet", tint = SamanthaTheme.ink)
                 }
             }
         }
@@ -285,9 +281,11 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
-        if (yukleniyor) {
-            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-        }
+        AsistanDusunuyorGostergesi(
+            visible = yukleniyor,
+            text = dusunmeMetni,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
 
         if (durumMesaji != null) {
             Text(
@@ -309,10 +307,10 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             )
             Spacer(modifier = Modifier.width(4.dp))
             IconButton(onClick = { sesleGirdiBaslat() }) {
-                Icon(Icons.Outlined.Mic, contentDescription = "Sesle yaz")
+                Icon(Icons.Outlined.Mic, contentDescription = "Sesle yaz", tint = SamanthaTheme.ink)
             }
             IconButton(onClick = { gonder() }) {
-                Icon(Icons.Outlined.Send, contentDescription = "Gönder")
+                Icon(Icons.Outlined.Send, contentDescription = "Gönder", tint = SamanthaTheme.accent)
             }
         }
     }
@@ -370,14 +368,100 @@ fun MesajBalonu(mesaj: ChatMesaj) {
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (mesaj.benMi) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                containerColor = if (mesaj.benMi) SamanthaTheme.pill else MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
-            Text(text = mesaj.icerik, modifier = Modifier.padding(12.dp))
+            Text(text = mesaj.icerik, modifier = Modifier.padding(12.dp), color = SamanthaTheme.ink)
         }
         if (!mesaj.benMi) {
             IconButton(onClick = { TTSYoneticisi.oku(mesaj.icerik) }) {
-                Icon(Icons.Outlined.VolumeUp, contentDescription = "Sesli oku", modifier = Modifier.width(20.dp))
+                Icon(Icons.Outlined.VolumeUp, contentDescription = "Sesli oku", modifier = Modifier.width(20.dp), tint = SamanthaTheme.muted)
+            }
+        }
+    }
+}
+
+@Composable
+fun GorunumAyarBolumu(modifier: Modifier = Modifier) {
+    val scope = rememberCoroutineScope()
+    var revealColor by remember { mutableStateOf<Color?>(null) }
+    var revealCenter by remember { mutableStateOf(Offset.Zero) }
+    var maxRadius by remember { mutableStateOf(0f) }
+    val revealRadius = remember { Animatable(0f) }
+
+    fun applyWithReveal(center: Offset, previewColor: Color, apply: () -> Unit) {
+        scope.launch {
+            revealCenter = center
+            revealColor = previewColor
+            revealRadius.snapTo(0f)
+            revealRadius.animateTo(maxRadius, tween(450))
+            apply()
+            revealColor = null
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .onGloballyPositioned {
+                val s = it.size
+                maxRadius = hypot(s.width.toFloat(), s.height.toFloat())
+            }
+    ) {
+        Column {
+            Text("Görünüm", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Vurgu rengini seç — değişiklik katmanlı bir geçişle yayılır.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                ACCENT_PALETTE.forEach { color ->
+                    val isActive = SamanthaTheme.accent == color
+                    var swatchCenter by remember { mutableStateOf(Offset.Zero) }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Brush.radialGradient(listOf(lerp(color, Color.White, 0.45f), color)))
+                            .then(
+                                if (isActive) Modifier.border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                                else Modifier
+                            )
+                            .onGloballyPositioned { swatchCenter = it.boundsInRoot().center }
+                            .clickable {
+                                applyWithReveal(swatchCenter, color) { SamanthaTheme.accent = color }
+                            }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Karanlık mod")
+                var switchCenter by remember { mutableStateOf(Offset.Zero) }
+                Switch(
+                    checked = SamanthaTheme.isDark,
+                    onCheckedChange = { checked ->
+                        val target = if (checked) Color(0xFF151223) else Color(0xFFFAF8FF)
+                        applyWithReveal(switchCenter, target) { SamanthaTheme.isDark = checked }
+                    },
+                    modifier = Modifier.onGloballyPositioned { switchCenter = it.boundsInRoot().center }
+                )
+            }
+        }
+
+        revealColor?.let { color ->
+            Canvas(modifier = Modifier.fillMaxWidth()) {
+                drawCircle(color = color, radius = revealRadius.value, center = revealCenter)
             }
         }
     }
@@ -399,9 +483,9 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
-        Text("Ayarlar", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(16.dp))
+        GorunumAyarBolumu()
 
+        Spacer(modifier = Modifier.height(32.dp))
         Text("Gemini API Anahtarı", style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
