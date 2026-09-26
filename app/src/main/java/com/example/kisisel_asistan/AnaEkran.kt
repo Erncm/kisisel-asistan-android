@@ -164,18 +164,18 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         if (girdiTrim.isBlank()) return
 
         if (whatsAppKomutuMu(girdiTrim)) {
-            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true, baglamaDahilMi = false))
             val sonucMesaji = whatsAppKomutunuCalistir(context, girdiTrim)
-            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false))
+            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false, baglamaDahilMi = false))
             girdi = ""
             return
         }
 
         val eslesenUygulama = genelKomutMu(girdiTrim)
         if (eslesenUygulama != null) {
-            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true, baglamaDahilMi = false))
             val sonucMesaji = genelKomutuCalistir(context, girdiTrim, eslesenUygulama)
-            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji, benMi = false))
+            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji, benMi = false, baglamaDahilMi = false))
             girdi = ""
             return
         }
@@ -183,9 +183,9 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         if (hafizaKomutuMu(girdiTrim)) {
             val oncekiMesaj = mesajlar.lastOrNull()?.icerik
             val icerik = hafizaIcerigiCikar(girdiTrim, oncekiMesaj)
-            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true, baglamaDahilMi = false))
             val kayit = HafizaDeposu.ekle(icerik)
-            SohbetDurumu.mesajEkle(ChatMesaj("Not edildi ✓ [${kayit.kod}]: ${kayit.ozet}", benMi = false))
+            SohbetDurumu.mesajEkle(ChatMesaj("Not edildi ✓ [${kayit.kod}]: ${kayit.ozet}", benMi = false, baglamaDahilMi = false))
             girdi = ""
             return
         }
@@ -205,13 +205,14 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             if (anahtar.isNotBlank()) {
                 gemeniDenendi = true
                 dusunmeMetni = "Gemini'ye soruluyor"
+                val baglamGecmisi = mesajlar.filter { it.baglamaDahilMi }
                 val gonderilecekListe = if (hafizaOzeti.isNotBlank()) {
                     listOf(
                         ChatMesaj("Kullanıcı hakkında bildiğim notlar:\n$hafizaOzeti", benMi = true),
                         ChatMesaj("Anladım, bu bilgileri göz önünde bulunduracağım.", benMi = false)
-                    ) + mesajlar.toList()
+                    ) + baglamGecmisi
                 } else {
-                    mesajlar.toList()
+                    baglamGecmisi
                 }
                 val sonuc = geminiYanitAl(anahtar, gonderilecekListe)
                 if (sonuc.isSuccess) {

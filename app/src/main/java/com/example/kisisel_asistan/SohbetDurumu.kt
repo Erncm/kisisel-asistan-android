@@ -102,6 +102,7 @@ object SohbetDurumu {
             val obj = JSONObject()
             obj.put("icerik", m.icerik)
             obj.put("benMi", m.benMi)
+            obj.put("baglamaDahilMi", m.baglamaDahilMi)
             dizi.put(obj)
         }
         return dizi.toString()
@@ -113,7 +114,13 @@ object SohbetDurumu {
             val liste = mutableListOf<ChatMesaj>()
             for (i in 0 until dizi.length()) {
                 val obj = dizi.getJSONObject(i)
-                liste.add(ChatMesaj(obj.getString("icerik"), obj.getBoolean("benMi")))
+                liste.add(
+                    ChatMesaj(
+                        obj.getString("icerik"),
+                        obj.getBoolean("benMi"),
+                        obj.optBoolean("baglamaDahilMi", true)
+                    )
+                )
             }
             liste
         } catch (e: Exception) {
@@ -143,7 +150,13 @@ object SohbetDurumu {
                 val mesajlar = mutableListOf<ChatMesaj>()
                 for (j in 0 until mesajlarDizi.length()) {
                     val mObj = mesajlarDizi.getJSONObject(j)
-                    mesajlar.add(ChatMesaj(mObj.getString("icerik"), mObj.getBoolean("benMi")))
+                    mesajlar.add(
+                        ChatMesaj(
+                            mObj.getString("icerik"),
+                            mObj.getBoolean("benMi"),
+                            mObj.optBoolean("baglamaDahilMi", true)
+                        )
+                    )
                 }
                 liste.add(SohbetOturumu(obj.getLong("id"), mesajlar, obj.getLong("zamanDamgasi")))
             }

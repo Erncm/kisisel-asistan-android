@@ -8,7 +8,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class ChatMesaj(val icerik: String, val benMi: Boolean)
+data class ChatMesaj(val icerik: String, val benMi: Boolean, val baglamaDahilMi: Boolean = true)
 
 suspend fun geminiYanitAl(apiKey: String, gecmis: List<ChatMesaj>): Result<String> {
     return withContext(Dispatchers.IO) {
