@@ -2,6 +2,9 @@ package com.example.kisisel_asistan
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -11,24 +14,28 @@ import kotlinx.coroutines.launch
 data class GenelGorev(
     val hedefPaket: String,
     val talimat: String,
-    var adimSayaci: Int = 0
+    var adimSayaci: Int = 0,
+    var sonEkranListesi: String = "",
+    var degismeyenAdimSayaci: Int = 0,
+    val gecmisKararlar: MutableList<String> = mutableListOf()
 )
 
 object OtomasyonBeyni {
-    var aktifGorev: GenelGorev? = null
+    var aktifGorev: GenelGorev? by mutableStateOf(null)
     private val kapsam = CoroutineScope(Dispatchers.Default)
     private var calisanIs: Job? = null
     private const val MAKS_ADIM = 12
+    private const val MAKS_DEGISMEYEN_ADIM = 3
 
     fun gorevBaslat(context: Context, hedefPaket: String, talimat: String) {
         aktifGorev = GenelGorev(hedefPaket, talimat)
-        OtomasyonKuyrugu.durum = "Görev başlıyor: $talimat"
+        OtomasyonKuyrugu.durum = "\"$talimat\" için uygulama açılıyor"
         val intent = context.packageManager.getLaunchIntentForPackage(hedefPaket)
         if (intent != null) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } else {
-            OtomasyonKuyrugu.durum = "Uygulama telefonda kurulu değil: $hedefPaket"
+            OtomasyonKuyrugu.durum = "Uygulama telefonda kurulu değil"
             aktifGorev = null
         }
     }
@@ -44,46 +51,84 @@ object OtomasyonBeyni {
 
     private suspend fun adimIsle(context: Context, servis: AsistanErisilebilirlikServisi, gorev: GenelGorev) {
         if (gorev.adimSayaci >= MAKS_ADIM) {
-            OtomasyonKuyrugu.durum = "Görev durduruldu: adım limiti aşıldı"
+            OtomasyonKuyrugu.durum = "Görev durduruldu: çok fazla adım denendi, elle devam etmen gerekebilir"
             aktifGorev = null
             return
         }
         gorev.adimSayaci++
 
+        OtomasyonKuyrugu.durum = "Ekran taranıyor (adım ${gorev.adimSayaci})"
         val kok = servis.ekranKokunuGetir()
         val ekranListesi = EkranOkuyucu.ekraniListele(kok)
+
+        val ekranDegisti = ekranListesi != gorev.sonEkranListesi
+        if (ekranDegisti) {
+            gorev.degismeyenAdimSayaci = 0
+        } else {
+            gorev.degismeyenAdimSayaci++
+        }
+        gorev.sonEkranListesi = ekranListesi
+
+        if (gorev.degismeyenAdimSayaci >= MAKS_DEGISMEYEN_ADIM) {
+            OtomasyonKuyrugu.durum = "Görev durduruldu: ekran değişmiyor, hedefe ulaşılamadı"
+            aktifGorev = null
+            return
+        }
+
+        val gecmisOzeti = if (gorev.gecmisKararlar.isEmpty()) {
+            "Henüz bir şey denenmedi."
+        } else {
+            "Şimdiye kadar denedikleriniz (sırayla): ${gorev.gecmisKararlar.takeLast(5).joinToString(", ")}"
+        }
+        val uyari = if (!ekranDegisti && gorev.gecmisKararlar.isNotEmpty()) {
+            "\nUYARI: Son kararından sonra ekran değişmedi, o eleman işe yaramamış olabilir. Farklı bir eleman dene ya da hedefe ulaşamıyorsan \"DURDUR\" yaz."
+        } else ""
 
         val prompt = """
 Sen bir Android otomasyon asistanısın. Kullanıcının hedefi: "${gorev.talimat}"
 Şu an ekranda görünen, numaralandırılmış elemanlar:
 $ekranListesi
 
+$gecmisOzeti$uyari
+
 Kurallar:
-- Eğer hedef tamamlandıysa sadece "BITTI" yaz.
+- Hedef tamamlandıysa sadece "BITTI" yaz.
 - Bir elemana dokunman gerekiyorsa sadece "TIKLA: <numara>" yaz.
-- Emin değilsen ya da uygun eleman yoksa "BEKLE" yaz.
+- Hedefe ulaşamayacağını düşünüyorsan "DURDUR" yaz.
+- Emin değilsen "BEKLE" yaz.
 Başka hiçbir açıklama yazma, sadece yukarıdaki formatlardan birini kullan.
         """.trimIndent()
 
+        OtomasyonKuyrugu.durum = "AI'a soruluyor (adım ${gorev.adimSayaci})"
         val cevap = aiCevapAl(context, prompt)
         if (cevap == null) {
-            OtomasyonKuyrugu.durum = "AI'a ulaşılamadı"
+            OtomasyonKuyrugu.durum = "AI'a ulaşılamadı, görev durduruldu"
+            aktifGorev = null
             return
         }
 
         val temiz = cevap.trim()
-        OtomasyonKuyrugu.durum = "AI: $temiz"
 
         when {
             temiz.startsWith("BITTI", ignoreCase = true) -> {
-                OtomasyonKuyrugu.durum = "Görev tamamlandı ✓"
+                OtomasyonKuyrugu.durum = "Tamamlandı ✓"
+                aktifGorev = null
+            }
+            temiz.startsWith("DURDUR", ignoreCase = true) -> {
+                OtomasyonKuyrugu.durum = "Görev durduruldu: hedefe ulaşılamadı, elle devam edebilirsin"
                 aktifGorev = null
             }
             temiz.startsWith("TIKLA", ignoreCase = true) -> {
                 val numara = Regex("\\d+").find(temiz)?.value?.toIntOrNull()
                 if (numara != null) {
+                    gorev.gecmisKararlar.add("TIKLA:$numara")
+                    OtomasyonKuyrugu.durum = "$numara numaralı elemana tıklanıyor"
                     val basarili = EkranOkuyucu.numaraylaTikla(numara)
-                    OtomasyonKuyrugu.durum = if (basarili) "Tıklandı: $numara" else "Tıklanamadı: $numara"
+                    if (!basarili) {
+                        OtomasyonKuyrugu.durum = "$numara numaralı elemana tıklanamadı"
+                    }
+                } else {
+                    OtomasyonKuyrugu.durum = "AI'ın cevabı anlaşılamadı, tekrar deneniyor"
                 }
             }
             else -> {
@@ -106,6 +151,7 @@ Başka hiçbir açıklama yazma, sadece yukarıdaki formatlardan birini kullan.
     }
 
     fun iptalEt() {
+        OtomasyonKuyrugu.durum = "Görev iptal edildi"
         aktifGorev = null
         calisanIs?.cancel()
     }

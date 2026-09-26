@@ -272,6 +272,12 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
+        AsistanDusunuyorGostergesi(
+            visible = OtomasyonBeyni.aktifGorev != null,
+            text = OtomasyonKuyrugu.durum,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
             state = listeDurumu
