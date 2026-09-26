@@ -60,7 +60,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 sealed class Sekme(val baslik: String, val ikon: ImageVector) {
@@ -78,7 +77,6 @@ val sekmeler = listOf(
     Sekme.Ara,
     Sekme.Ayarlar
 )
-
 
 @Composable
 fun AnaEkranIskelet() {
@@ -107,7 +105,6 @@ fun AnaEkranIskelet() {
         }
     }
 }
-
 
 @Composable
 fun SohbetEkrani(modifier: Modifier = Modifier) {
@@ -175,18 +172,19 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         val girdiTrim = girdi.trim()
         if (girdiTrim.isBlank()) return
 
-        if (youtubeKomutuMu(girdiTrim)) {
+        if (whatsAppKomutuMu(girdiTrim)) {
             SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
-            val sonucMesaji = youtubeKomutunuCalistir(context, girdiTrim)
+            val sonucMesaji = whatsAppKomutunuCalistir(context, girdiTrim)
             SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false))
             girdi = ""
             return
         }
 
-        if (whatsAppKomutuMu(girdiTrim)) {
+        val eslesenUygulama = genelKomutMu(girdiTrim)
+        if (eslesenUygulama != null) {
             SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
-            val sonucMesaji = whatsAppKomutunuCalistir(context, girdiTrim)
-            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false))
+            val sonucMesaji = genelKomutuCalistir(context, girdiTrim, eslesenUygulama)
+            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji, benMi = false))
             girdi = ""
             return
         }
@@ -362,7 +360,6 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     }
 }
 
-
 @Composable
 fun MesajBalonu(mesaj: ChatMesaj) {
     Row(
@@ -385,7 +382,6 @@ fun MesajBalonu(mesaj: ChatMesaj) {
         }
     }
 }
-
 
 @Composable
 fun AyarlarEkrani(modifier: Modifier = Modifier) {
@@ -509,6 +505,12 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        OtomasyonAyarBolumu()
+
+        Spacer(modifier = Modifier.height(32.dp))
+        EkranOkumaTestBolumu()
     }
 }
 
@@ -516,16 +518,16 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
 fun OtomasyonAyarBolumu(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Column(modifier = modifier) {
-        Text("WhatsApp Otomasyonu", style = MaterialTheme.typography.bodyMedium)
+        Text("Uygulama Otomasyonu", style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Sohbette \"whatsaptan Ahmet'e ... yaz\" gibi yazarak WhatsApp mesajı gönderebilirsin. Önce aşağıdaki izni açman gerekiyor.",
+            "Sohbette \"whatsaptan Ahmet'e ... yaz\" ya da \"hesap makinesine gir 99*11911 yap\" gibi herhangi bir kurulu uygulama için komut verebilirsin. Önce aşağıdaki izni açman gerekiyor.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = {
-            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }) {
             Text("Erişilebilirlik İznini Aç")
         }
@@ -534,11 +536,7 @@ fun OtomasyonAyarBolumu(modifier: Modifier = Modifier) {
             Text("Son durum: ${OtomasyonKuyrugu.durum}", style = MaterialTheme.typography.bodySmall)
         }
     }
-        Spacer(modifier = Modifier.height(32.dp))
-        OtomasyonAyarBolumu()
-        Spacer(modifier = Modifier.height(32.dp))
-        EkranOkumaTestBolumu()
-    }
+}
 
 @Composable
 fun EkranOkumaTestBolumu(modifier: Modifier = Modifier) {
@@ -546,12 +544,6 @@ fun EkranOkumaTestBolumu(modifier: Modifier = Modifier) {
 
     Column(modifier = modifier) {
         Text("Ekran Okuma Testi", style = MaterialTheme.typography.bodyMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Başka bir uygulamayı öne getirip buraya dönmeden bu butona basamazsın; bu yüzden önce erişilebilirlik izninin açık olduğundan emin ol, sonra Ana Sayfa'dayken dene.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = {
             val servis = AsistanErisilebilirlikServisi.aktifOrnek

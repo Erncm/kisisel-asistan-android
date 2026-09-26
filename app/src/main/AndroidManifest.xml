@@ -11,8 +11,10 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
-        <package android:name="com.whatsapp" />
-        <package android:name="com.google.android.youtube" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application

@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
         TTSYoneticisi.baslat(this)
         SohbetDurumu.baslat(this)
         HafizaDeposu.baslat(this)
+        UygulamaKatalogu.yukle(this)
         setContent {
             KisiselasistanTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
