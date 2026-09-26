@@ -175,6 +175,14 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         val girdiTrim = girdi.trim()
         if (girdiTrim.isBlank()) return
 
+        if (youtubeKomutuMu(girdiTrim)) {
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
+            val sonucMesaji = youtubeKomutunuCalistir(context, girdiTrim)
+            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false))
+            girdi = ""
+            return
+        }
+
         if (whatsAppKomutuMu(girdiTrim)) {
             SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true))
             val sonucMesaji = whatsAppKomutunuCalistir(context, girdiTrim)

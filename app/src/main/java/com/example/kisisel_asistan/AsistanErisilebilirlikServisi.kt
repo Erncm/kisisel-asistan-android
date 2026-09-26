@@ -24,6 +24,13 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val paketAdi = event?.packageName?.toString() ?: return
+
+        OtomasyonBeyni.aktifGorev?.let { gorev ->
+            if (paketAdi == gorev.hedefPaket) {
+                OtomasyonBeyni.ekranDegistiginde(applicationContext, this)
+            }
+        }
+
         if (paketAdi != "com.whatsapp") return
 
         val gorev = OtomasyonKuyrugu.bekleyenWhatsAppGorevi ?: return
