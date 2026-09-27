@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Mic
@@ -109,7 +110,19 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     var durumMesaji by remember { mutableStateOf<String?>(null) }
     var gecmisAcik by remember { mutableStateOf(false) }
     var sesliOkumaAcik by remember { mutableStateOf(false) }
+    var secilenGorselUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val listeDurumu = rememberLazyListState()
+
+    val gorselSeciciLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> secilenGorselUri = uri }
+
+    LaunchedEffect(Unit) {
+        DisaridanGelenMetin.bekleyenMetin.value?.let { metin ->
+            girdi = metin
+            DisaridanGelenMetin.bekleyenMetin.value = null
+        }
+    }
 
     val sesTanimaLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -202,9 +215,18 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             return
         }
 
-        val kullaniciMesaji = ChatMesaj(girdiTrim, benMi = true)
+        var gorselBase64: String? = null
+        var gorselMime: String? = null
+        secilenGorselUri?.let { uri ->
+            gorseliBase64eCevir(context, uri)?.let { (base64, mime) ->
+                gorselBase64 = base64
+                gorselMime = mime
+            }
+        }
+        val kullaniciMesaji = ChatMesaj(girdiTrim, benMi = true, gorselBase64 = gorselBase64, gorselMimeTipi = gorselMime)
         SohbetDurumu.mesajEkle(kullaniciMesaji)
         girdi = ""
+        secilenGorselUri = null
         durumMesaji = null
         yukleniyor = true
         dusunmeMetni = "Düşünüyor"
@@ -314,10 +336,26 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             )
         }
 
+        secilenGorselUri?.let { uri ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("📎 Görsel eklendi", style = MaterialTheme.typography.bodySmall, color = SamanthaTheme.muted)
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = { secilenGorselUri = null }) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "Görseli kaldır", tint = SamanthaTheme.muted)
+                }
+            }
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = { gorselSeciciLauncher.launch("image/*") }) {
+                Icon(Icons.Outlined.AttachFile, contentDescription = "Dosya ekle", tint = SamanthaTheme.ink)
+            }
             OutlinedTextField(
                 value = girdi,
                 onValueChange = { girdi = it },
@@ -390,7 +428,13 @@ fun MesajBalonu(mesaj: ChatMesaj) {
                 containerColor = if (mesaj.benMi) SamanthaTheme.pill else MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
-            Text(text = mesaj.icerik, modifier = Modifier.padding(12.dp), color = SamanthaTheme.ink)
+            Column(modifier = Modifier.padding(12.dp)) {
+                if (mesaj.gorselBase64 != null) {
+                    Text("📎 Görsel", style = MaterialTheme.typography.labelSmall, color = SamanthaTheme.muted)
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                Text(text = mesaj.icerik, color = SamanthaTheme.ink)
+            }
         }
         if (!mesaj.benMi) {
             IconButton(onClick = { TTSYoneticisi.oku(mesaj.icerik) }) {
