@@ -612,6 +612,9 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(32.dp))
         EkranOkumaTestBolumu()
+
+        Spacer(modifier = Modifier.height(32.dp))
+        UyanmaAyarBolumu()
     }
 }
 
@@ -660,5 +663,80 @@ fun EkranOkumaTestBolumu(modifier: Modifier = Modifier) {
         Card(shape = RoundedCornerShape(12.dp)) {
             Text(sonuc, modifier = Modifier.padding(12.dp))
         }
+    }
+}
+
+@Composable
+fun UyanmaAyarBolumu(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var kelime by remember { mutableStateOf(UyanmaAyarlari.kelimeyiOku(context)) }
+    var aktif by remember { mutableStateOf(UyanmaAyarlari.aktifMi(context)) }
+
+    val mikrofonIzinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { verildi ->
+        if (verildi) {
+            aktif = true
+            UyanmaAyarlari.aktifligiKaydet(context, true)
+            context.startForegroundService(Intent(context, UyanmaKelimesiServisi::class.java))
+        }
+    }
+
+    Column(modifier = modifier) {
+        Text("Uyanma Kelimesi (Deneysel)", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Bu, sesini tanıyan kişiye özel bir sistem DEĞİL — sadece söylediğin cümlede seçtiğin kelimeyi metin olarak arıyor. Kısa/genel kelimeler yanlışlıkla tetiklenebilir, 2-3 kelimelik farklı bir ifade seç (örn. \"asistanım hazır mısın\").",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = kelime,
+            onValueChange = { kelime = it; UyanmaAyarlari.kelimeyiKaydet(context, it.trim()) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("örn: asistanım hazır mısın") }
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(if (aktif) "Dinleme açık" else "Dinleme kapalı")
+            Switch(
+                checked = aktif,
+                onCheckedChange = { yeniDurum ->
+                    if (kelime.isBlank()) return@Switch
+                    if (yeniDurum) {
+                        val izinVarMi = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                        if (izinVarMi) {
+                            aktif = true
+                            UyanmaAyarlari.aktifligiKaydet(context, true)
+                            context.startForegroundService(Intent(context, UyanmaKelimesiServisi::class.java))
+                        } else {
+                            mikrofonIzinIstegi.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    } else {
+                        aktif = false
+                        UyanmaAyarlari.aktifligiKaydet(context, false)
+                        context.stopService(Intent(context, UyanmaKelimesiServisi::class.java))
+                    }
+                }
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            val i = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            i.data = android.net.Uri.parse("package:${context.packageName}")
+            context.startActivity(i)
+        }) {
+            Text("Pil Optimizasyonunu Kapat")
+        }
+        Text(
+            "Servisin ekran kapalıyken de çalışması için bu adım gerekiyor.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
