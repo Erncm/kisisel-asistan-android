@@ -6,7 +6,8 @@ import androidx.compose.runtime.setValue
 
 data class WhatsAppGorevi(
     val kisiAdi: String,
-    val mesaj: String
+    val mesaj: String,
+    val dogrudanAcildiMi: Boolean = false
 )
 
 object OtomasyonKuyrugu {

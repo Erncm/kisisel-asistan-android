@@ -119,6 +119,16 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         }
     }
 
+    val kisiIzinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            kisiIzinIstegi.launch(Manifest.permission.READ_CONTACTS)
+        }
+    }
+
     val mikrofonIzinIstegi = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { verildi ->

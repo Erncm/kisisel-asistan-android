@@ -37,8 +37,25 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
         if (calisiyorMu) return
 
         calisiyorMu = true
-        asamaNo = 0
-        adimlariBaslat(gorev)
+
+        if (gorev.dogrudanAcildiMi) {
+            OtomasyonKuyrugu.durum = "Gönder butonu aranıyor..."
+            asamaNo = 2
+            handler.postDelayed({ denemeYap(gorev, 0) }, 500)
+        } else {
+            OtomasyonKuyrugu.durum = "Sohbet listesine dönülüyor..."
+            asamaNo = 0
+            sohbetListesineDon(0) { adimlariBaslat(gorev) }
+        }
+    }
+
+    private fun sohbetListesineDon(deneme: Int, devamEt: () -> Unit) {
+        if (deneme >= 3) {
+            devamEt()
+            return
+        }
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        handler.postDelayed({ sohbetListesineDon(deneme + 1, devamEt) }, 250)
     }
 
     fun ekranKokunuGetir(): AccessibilityNodeInfo? = rootInActiveWindow
@@ -57,7 +74,7 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
 
         val kok = rootInActiveWindow
         if (kok == null) {
-            handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 400)
+            handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 300)
             return
         }
 
@@ -68,9 +85,9 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
                     kisiNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                     OtomasyonKuyrugu.durum = "${gorev.kisiAdi} bulundu, sohbet açılıyor..."
                     asamaNo = 1
-                    handler.postDelayed({ denemeYap(gorev, 0) }, 800)
+                    handler.postDelayed({ denemeYap(gorev, 0) }, 600)
                 } else {
-                    handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 400)
+                    handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 300)
                 }
             }
             1 -> {
@@ -84,9 +101,9 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
                     mesajKutusu.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
                     OtomasyonKuyrugu.durum = "Mesaj yazıldı, gönderiliyor..."
                     asamaNo = 2
-                    handler.postDelayed({ denemeYap(gorev, 0) }, 500)
+                    handler.postDelayed({ denemeYap(gorev, 0) }, 400)
                 } else {
-                    handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 400)
+                    handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 300)
                 }
             }
             2 -> {
@@ -96,7 +113,7 @@ class AsistanErisilebilirlikServisi : AccessibilityService() {
                     OtomasyonKuyrugu.durum = "Mesaj gönderildi ✓"
                     gorevBitir()
                 } else {
-                    handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 400)
+                    handler.postDelayed({ denemeYap(gorev, deneme + 1) }, 300)
                 }
             }
         }
