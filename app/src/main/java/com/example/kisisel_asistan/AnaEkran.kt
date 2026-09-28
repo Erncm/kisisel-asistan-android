@@ -664,6 +664,9 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(32.dp))
         UyanmaAyarBolumu()
+
+        Spacer(modifier = Modifier.height(32.dp))
+        SabahOzetiAyarBolumu()
     }
 }
 
@@ -787,5 +790,77 @@ fun UyanmaAyarBolumu(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+fun SabahOzetiAyarBolumu(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var aktif by remember { mutableStateOf(SabahOzetiAyarlari.aktifMi(context)) }
+    var saat by remember { mutableStateOf(SabahOzetiAyarlari.saatOku(context)) }
+    var dakika by remember { mutableStateOf(SabahOzetiAyarlari.dakikaOku(context)) }
+
+    val bildirimIzinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { verildi ->
+        if (verildi) {
+            aktif = true
+            SabahOzetiAyarlari.kaydet(context, true, saat, dakika)
+            SabahOzetiZamanlayici.zamanlaGunluk(context, saat, dakika)
+        }
+    }
+
+    Column(modifier = modifier) {
+        Text("Sabah Özeti Bildirimi", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Her gün seçtiğin saatte hava durumu ve hafızandaki notlardan kısa bir özet bildirim olarak gelir.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = saat.toString(),
+                onValueChange = { it.toIntOrNull()?.let { s -> if (s in 0..23) saat = s } },
+                modifier = Modifier.width(70.dp),
+                label = { Text("Saat") }
+            )
+            Spacer(Modifier.width(12.dp))
+            OutlinedTextField(
+                value = dakika.toString(),
+                onValueChange = { it.toIntOrNull()?.let { d -> if (d in 0..59) dakika = d } },
+                modifier = Modifier.width(70.dp),
+                label = { Text("Dakika") }
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(if (aktif) "Bildirim açık" else "Bildirim kapalı")
+            Switch(
+                checked = aktif,
+                onCheckedChange = { yeniDurum ->
+                    if (yeniDurum) {
+                        val izinGerekliMi = android.os.Build.VERSION.SDK_INT >= 33
+                        val izinVarMi = !izinGerekliMi || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                        if (izinVarMi) {
+                            aktif = true
+                            SabahOzetiAyarlari.kaydet(context, true, saat, dakika)
+                            SabahOzetiZamanlayici.zamanlaGunluk(context, saat, dakika)
+                        } else {
+                            bildirimIzinIstegi.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    } else {
+                        aktif = false
+                        SabahOzetiAyarlari.kaydet(context, false, saat, dakika)
+                        SabahOzetiZamanlayici.iptalEt(context)
+                    }
+                }
+            )
+        }
     }
 }
