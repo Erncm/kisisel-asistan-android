@@ -349,27 +349,16 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { gorselSeciciLauncher.launch("image/*") }) {
-                Icon(Icons.Outlined.AttachFile, contentDescription = "Dosya ekle", tint = SamanthaTheme.ink)
-            }
-            OutlinedTextField(
-                value = girdi,
-                onValueChange = { girdi = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Bir şeyler yaz... (\"hatırla: ...\" ile not al)") }
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            IconButton(onClick = { sesleGirdiBaslat() }) {
-                Icon(Icons.Outlined.Mic, contentDescription = "Sesle yaz", tint = SamanthaTheme.ink)
-            }
-            IconButton(onClick = { gonder() }) {
-                Icon(Icons.Outlined.Send, contentDescription = "Gönder", tint = SamanthaTheme.accent)
-            }
-        }
+        VoiceAssistantBar(
+            modifier = Modifier.padding(16.dp),
+            audioVolume = if (yukleniyor) 0.6f else 0.15f,
+            onSendMessage = { metin ->
+                girdi = metin
+                gonder()
+            },
+            onAttachClick = { gorselSeciciLauncher.launch("image/*") },
+            onOrbLongPress = { sesleGirdiBaslat() }
+        )
     }
 
     if (gecmisAcik) {
