@@ -3,7 +3,7 @@ package com.example.kisisel_asistan
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.speech.RecognizerIntent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
@@ -28,16 +28,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -52,6 +49,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +70,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import kotlin.math.hypot
 import kotlinx.coroutines.launch
 
@@ -110,64 +110,38 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
     var durumMesaji by remember { mutableStateOf<String?>(null) }
     var gecmisAcik by remember { mutableStateOf(false) }
     var sesliOkumaAcik by remember { mutableStateOf(false) }
-    var secilenGorselUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var secilenGorselUri by remember { mutableStateOf<Uri?>(null) }
+    var dinliyorMu by remember { mutableStateOf(false) }
+    var sesDurumu by remember { mutableStateOf("") }
     val listeDurumu = rememberLazyListState()
 
     val gorselSeciciLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri -> secilenGorselUri = uri }
 
-    LaunchedEffect(Unit) {
-        DisaridanGelenMetin.bekleyenMetin.value?.let { metin ->
-            girdi = metin
-            DisaridanGelenMetin.bekleyenMetin.value = null
-        }
-    }
-
-    val sesTanimaLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { sonuc ->
-        val metinler = sonuc.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-        val tanininMetin = metinler?.firstOrNull()
-        if (!tanininMetin.isNullOrBlank()) {
-            girdi = if (girdi.isBlank()) tanininMetin else "$girdi $tanininMetin"
-        }
-    }
-
-    val kisiIzinIstegi = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
-
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            kisiIzinIstegi.launch(Manifest.permission.READ_CONTACTS)
-        }
+    fun sesTanimayiBaslat() {
+        dinliyorMu = true
+        SesliGirisYoneticisi.dinlemeyeBasla(
+            context = context,
+            onSonuc = { metin -> girdi = if (girdi.isBlank()) metin else "$girdi $metin" },
+            onDurum = { durum -> sesDurumu = durum },
+            onBitti = { dinliyorMu = false; sesDurumu = "" }
+        )
     }
 
     val mikrofonIzinIstegi = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { verildi ->
-        if (verildi) {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Dinliyorum...")
-            }
-            sesTanimaLauncher.launch(intent)
-        }
-    }
+    ) { verildi -> if (verildi) sesTanimayiBaslat() }
 
     fun sesleGirdiBaslat() {
         val izinVarMi = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        if (izinVarMi) {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Dinliyorum...")
-            }
-            sesTanimaLauncher.launch(intent)
-        } else {
-            mikrofonIzinIstegi.launch(Manifest.permission.RECORD_AUDIO)
+        if (izinVarMi) sesTanimayiBaslat() else mikrofonIzinIstegi.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    LaunchedEffect(Unit) {
+        DisaridanGelenMetin.bekleyenMetin.value?.let { metin ->
+            girdi = metin
+            DisaridanGelenMetin.bekleyenMetin.value = null
         }
     }
 
@@ -179,9 +153,7 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
 
     fun asistanYanitiEkle(metin: String) {
         SohbetDurumu.mesajEkle(ChatMesaj(metin, benMi = false))
-        if (sesliOkumaAcik) {
-            TTSYoneticisi.oku(metin)
-        }
+        if (sesliOkumaAcik) TTSYoneticisi.oku(metin)
     }
 
     fun gonder() {
@@ -191,6 +163,14 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
         if (whatsAppKomutuMu(girdiTrim)) {
             SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true, baglamaDahilMi = false))
             val sonucMesaji = whatsAppKomutunuCalistir(context, girdiTrim)
+            SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false, baglamaDahilMi = false))
+            girdi = ""
+            return
+        }
+
+        if (youtubeKomutuMu(girdiTrim)) {
+            SohbetDurumu.mesajEkle(ChatMesaj(girdiTrim, benMi = true, baglamaDahilMi = false))
+            val sonucMesaji = youtubeKomutunuCalistir(context, girdiTrim)
             SohbetDurumu.mesajEkle(ChatMesaj(sonucMesaji ?: "Komut anlaşılamadı", benMi = false, baglamaDahilMi = false))
             girdi = ""
             return
@@ -235,11 +215,11 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             val anahtar = apiAnahtariOku(context)
             var gemeniDenendi = false
             val hafizaOzeti = HafizaDeposu.hepsiniOzetGetir()
+            val baglamGecmisi = mesajlar.filter { it.baglamaDahilMi }
 
             if (anahtar.isNotBlank()) {
                 gemeniDenendi = true
                 dusunmeMetni = "Gemini'ye soruluyor"
-                val baglamGecmisi = mesajlar.filter { it.baglamaDahilMi }
                 val gonderilecekListe = if (hafizaOzeti.isNotBlank()) {
                     listOf(
                         ChatMesaj("Kullanıcı hakkında bildiğim notlar:\n$hafizaOzeti", benMi = true),
@@ -306,12 +286,6 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
-        AsistanDusunuyorGostergesi(
-            visible = OtomasyonBeyni.aktifGorev != null,
-            text = OtomasyonKuyrugu.durum,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
             state = listeDurumu
@@ -328,6 +302,12 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
+        AsistanDusunuyorGostergesi(
+            visible = OtomasyonBeyni.aktifGorev != null,
+            text = OtomasyonKuyrugu.durum,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
         if (durumMesaji != null) {
             Text(
                 text = durumMesaji ?: "",
@@ -336,7 +316,15 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             )
         }
 
-        secilenGorselUri?.let { uri ->
+        if (dinliyorMu && sesDurumu.isNotBlank()) {
+            Text(
+                text = sesDurumu,
+                color = SamanthaTheme.muted,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+
+        secilenGorselUri?.let {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -347,14 +335,6 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                     Icon(Icons.Outlined.Delete, contentDescription = "Görseli kaldır", tint = SamanthaTheme.muted)
                 }
             }
-        }
-
-        if (dinliyorMu && sesDurumu.isNotBlank()) {
-            Text(
-                text = sesDurumu,
-                color = SamanthaTheme.muted,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
         }
 
         VoiceAssistantBar(
@@ -384,16 +364,10 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
                         SohbetDurumu.gecmisOturumlar.forEach { oturum ->
                             val ozet = oturum.mesajlar.firstOrNull()?.icerik?.take(40) ?: "Boş sohbet"
                             Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp)
-                                ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                                     Text(ozet, style = MaterialTheme.typography.bodyMedium)
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Button(onClick = {
@@ -601,9 +575,7 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
                             indiriliyor = true
                             modelHata = null
                             kapsam.launch {
-                                val sonuc = modelIndir(context) { yuzde ->
-                                    ilerlemeYuzdesi = yuzde
-                                }
+                                val sonuc = modelIndir(context) { yuzde -> ilerlemeYuzdesi = yuzde }
                                 indiriliyor = false
                                 when (sonuc) {
                                     is IndirmeSonucu.Basarili -> modelMevcut = true
@@ -735,7 +707,7 @@ fun UyanmaAyarBolumu(modifier: Modifier = Modifier) {
         Text("Uyanma Kelimesi (Deneysel)", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Bu, sesini tanıyan kişiye özel bir sistem DEĞİL — sadece söylediğin cümlede seçtiğin kelimeyi metin olarak arıyor. Kısa/genel kelimeler yanlışlıkla tetiklenebilir, 2-3 kelimelik farklı bir ifade seç (örn. \"asistanım hazır mısın\").",
+            "Sesini tanıyan kişiye özel bir sistem DEĞİL — söylediğin cümlede seçtiğin kelimeyi metin olarak arıyor. 2-3 kelimelik farklı bir ifade seç.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -777,7 +749,7 @@ fun UyanmaAyarBolumu(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(8.dp))
         Button(onClick = {
             val i = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            i.data = android.net.Uri.parse("package:${context.packageName}")
+            i.data = Uri.parse("package:${context.packageName}")
             context.startActivity(i)
         }) {
             Text("Pil Optimizasyonunu Kapat")
@@ -869,6 +841,10 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
     var havaDurumu by remember { mutableStateOf(havaDurumuOnbellekOku(context)) }
     var konumDurumu by remember { mutableStateOf("") }
 
+    var adimSayisi by remember { mutableStateOf<Long?>(null) }
+    var uykuSuresi by remember { mutableStateOf<java.time.Duration?>(null) }
+    var saglikDurumu by remember { mutableStateOf("") }
+
     fun konumuIsle(konum: android.location.Location?) {
         if (konum == null) {
             konumDurumu = "Konum bulunamadı, GPS açık mı?"
@@ -889,18 +865,55 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 
     val konumIzinIstegi = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { verildi ->
-        if (verildi) konumuIsle(sonBilinenKonumuAl(context)) else konumDurumu = "Konum izni verilmedi"
-    }
+    ) { verildi -> if (verildi) konumuIsle(sonBilinenKonumuAl(context)) else konumDurumu = "Konum izni verilmedi" }
 
     fun konumuGuncelle() {
         val izinVarMi = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (izinVarMi) {
-            konumuIsle(sonBilinenKonumuAl(context))
+        if (izinVarMi) konumuIsle(sonBilinenKonumuAl(context)) else konumIzinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+
+    val saglikIzinIstegi = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { verilenIzinler ->
+        if (verilenIzinler.containsAll(SAGLIK_IZINLERI)) {
+            kapsam.launch {
+                saglikDurumu = "Yükleniyor..."
+                val veri = bugunkuSaglikVerisiniGetir(context)
+                adimSayisi = veri.adimSayisi
+                uykuSuresi = veri.uykuSuresi
+                saglikDurumu = ""
+            }
         } else {
-            konumIzinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            saglikDurumu = "Sağlık izni verilmedi"
         }
     }
+
+    fun saglikVerisiniIsteVeGetir() {
+        if (!healthConnectKurulumuVarMi(context)) {
+            saglikDurumu = "Health Connect uygulaması kurulu değil"
+            return
+        }
+        kapsam.launch {
+            try {
+                val client = HealthConnectClient.getOrCreate(context)
+                val mevcutIzinler = client.permissionController.getGrantedPermissions()
+                if (mevcutIzinler.containsAll(SAGLIK_IZINLERI)) {
+                    saglikDurumu = "Yükleniyor..."
+                    val veri = bugunkuSaglikVerisiniGetir(context)
+                    adimSayisi = veri.adimSayisi
+                    uykuSuresi = veri.uykuSuresi
+                    saglikDurumu = ""
+                } else {
+                    saglikDurumu = "Sağlık izni bekleniyor"
+                    saglikIzinIstegi.launch(SAGLIK_IZINLERI)
+                }
+            } catch (e: Exception) {
+                saglikDurumu = "Bağlantı hatası"
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { saglikVerisiniIsteVeGetir() }
 
     Column(
         modifier = modifier
@@ -946,12 +959,25 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Sağlık", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Sağlık verisi entegrasyonu yakında burada olacak.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text(adimSayisi?.toString() ?: "--", style = MaterialTheme.typography.headlineSmall)
+                        Text("Adım", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Column {
+                        val uykuMetni = uykuSuresi?.let { "${it.toHours()}s ${it.toMinutes() % 60}dk" } ?: "--"
+                        Text(uykuMetni, style = MaterialTheme.typography.headlineSmall)
+                        Text("Uyku", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { saglikVerisiniIsteVeGetir() }) {
+                    Text("Sağlık İznini İste / Yenile")
+                }
+                if (saglikDurumu.isNotBlank()) {
+                    Text(saglikDurumu, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
 
