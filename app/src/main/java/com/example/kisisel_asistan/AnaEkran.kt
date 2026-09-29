@@ -88,7 +88,7 @@ fun AnaEkranIskelet() {
         Crossfade(targetState = seciliSekme, label = "tab-content") { tab ->
             Box(modifier = Modifier.padding(icPadding).fillMaxSize()) {
                 when (tab) {
-                    0 -> Text("Ana Sayfa ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
+                    0 -> AnaSayfaIcerik()
                     1 -> SohbetEkrani()
                     2 -> Text("Sağlık ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
                     3 -> Text("Ara ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
@@ -349,9 +349,17 @@ fun SohbetEkrani(modifier: Modifier = Modifier) {
             }
         }
 
+        if (dinliyorMu && sesDurumu.isNotBlank()) {
+            Text(
+                text = sesDurumu,
+                color = SamanthaTheme.muted,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+
         VoiceAssistantBar(
             modifier = Modifier.padding(16.dp),
-            audioVolume = if (yukleniyor) 0.6f else 0.15f,
+            audioVolume = if (dinliyorMu) 0.9f else if (yukleniyor) 0.6f else 0.15f,
             onSendMessage = { metin ->
                 girdi = metin
                 gonder()
@@ -850,6 +858,117 @@ fun SabahOzetiAyarBolumu(modifier: Modifier = Modifier) {
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val kapsam = rememberCoroutineScope()
+    var havaDurumu by remember { mutableStateOf(havaDurumuOnbellekOku(context)) }
+    var konumDurumu by remember { mutableStateOf("") }
+
+    fun konumuIsle(konum: android.location.Location?) {
+        if (konum == null) {
+            konumDurumu = "Konum bulunamadı, GPS açık mı?"
+            return
+        }
+        konumDurumu = "Konum alınıyor..."
+        kapsam.launch {
+            val veri = havaDurumuGetir(context, konum.latitude, konum.longitude)
+            if (veri != null) {
+                havaDurumu = veri
+                havaDurumuOnbellekKaydet(context, veri)
+                konumDurumu = ""
+            } else {
+                konumDurumu = "Hava durumu alınamadı"
+            }
+        }
+    }
+
+    val konumIzinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { verildi ->
+        if (verildi) konumuIsle(sonBilinenKonumuAl(context)) else konumDurumu = "Konum izni verilmedi"
+    }
+
+    fun konumuGuncelle() {
+        val izinVarMi = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (izinVarMi) {
+            konumuIsle(sonBilinenKonumuAl(context))
+        } else {
+            konumIzinIstegi.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("Merhaba", style = MaterialTheme.typography.headlineSmall, color = SamanthaTheme.ink)
+        Spacer(Modifier.height(16.dp))
+
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(havaDurumu?.sehir ?: "Konumunuz", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            havaDurumu?.aciklama ?: "Hava durumu için konumu güncelle",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        if (havaDurumu != null) "${havaDurumu!!.sicaklik.toInt()}°C" else "--°C",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { konumuGuncelle() }) {
+                    Text("Konumu Güncelle")
+                }
+                if (konumDurumu.isNotBlank()) {
+                    Text(konumDurumu, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Sağlık", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Sağlık verisi entegrasyonu yakında burada olacak.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("İpucu", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(4.dp))
+                val notSayisi = HafizaDeposu.kayitlar.size
+                Text(
+                    if (notSayisi > 0) "Şu an $notSayisi kayıtlı notun var. Sohbette \"hatırla: ...\" yazarak yenisini ekleyebilirsin."
+                    else "Sohbette \"hatırla: ...\" yazarak asistanının seni hatırlamasını sağlayabilirsin.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
