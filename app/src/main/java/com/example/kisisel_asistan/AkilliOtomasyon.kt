@@ -40,6 +40,11 @@ object OtomasyonBeyni {
         }
     }
 
+    fun devamGoreviBaslat(hedefPaket: String, talimat: String) {
+        aktifGorev = GenelGorev(hedefPaket, talimat)
+        OtomasyonKuyrugu.durum = "Sonuçlar bekleniyor..."
+    }
+
     fun ekranDegistiginde(context: Context, servis: AsistanErisilebilirlikServisi) {
         val gorev = aktifGorev ?: return
         if (calisanIs?.isActive == true) return
