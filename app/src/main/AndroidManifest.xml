@@ -51,6 +51,18 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AsistanOrbActivity"
+            android:exported="true"
+            android:theme="@style/Theme.KisiselAsistan"
+            android:excludeFromRecents="true"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".AsistanErisilebilirlikServisi"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
