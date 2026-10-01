@@ -878,19 +878,28 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         if (verilenIzinler.containsAll(SAGLIK_IZINLERI)) {
             kapsam.launch {
                 saglikDurumu = "Yükleniyor..."
-                val veri = bugunkuSaglikVerisiniGetir(context)
-                adimSayisi = veri.adimSayisi
-                uykuSuresi = veri.uykuSuresi
-                saglikDurumu = ""
+                when (val sonuc = bugunkuSaglikVerisiniGetirDetayli(context)) {
+                    is SaglikSonucu.Basarili -> {
+                        adimSayisi = sonuc.veri.adimSayisi
+                        uykuSuresi = sonuc.veri.uykuSuresi
+                        saglikDurumu = ""
+                    }
+                    is SaglikSonucu.Hata -> saglikDurumu = sonuc.mesaj
+                }
             }
         } else {
-            saglikDurumu = "Sağlık izni verilmedi"
+            saglikDurumu = "Sağlık izni verilmedi (Health Connect'ten manuel açabilirsin)"
         }
     }
 
     fun saglikVerisiniIsteVeGetir() {
-        if (!healthConnectKurulumuVarMi(context)) {
-            saglikDurumu = "Health Connect uygulaması kurulu değil"
+        val durumKodu = healthConnectDurumKodu(context)
+        if (durumKodu != HealthConnectClient.SDK_AVAILABLE) {
+            saglikDurumu = when (durumKodu) {
+                HealthConnectClient.SDK_UNAVAILABLE -> "Bu cihaz Health Connect'i desteklemiyor"
+                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "Health Connect güncellenmeli"
+                else -> "Health Connect kurulu değil"
+            }
             return
         }
         kapsam.launch {
@@ -899,16 +908,20 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                 val mevcutIzinler = client.permissionController.getGrantedPermissions()
                 if (mevcutIzinler.containsAll(SAGLIK_IZINLERI)) {
                     saglikDurumu = "Yükleniyor..."
-                    val veri = bugunkuSaglikVerisiniGetir(context)
-                    adimSayisi = veri.adimSayisi
-                    uykuSuresi = veri.uykuSuresi
-                    saglikDurumu = ""
+                    when (val sonuc = bugunkuSaglikVerisiniGetirDetayli(context)) {
+                        is SaglikSonucu.Basarili -> {
+                            adimSayisi = sonuc.veri.adimSayisi
+                            uykuSuresi = sonuc.veri.uykuSuresi
+                            saglikDurumu = ""
+                        }
+                        is SaglikSonucu.Hata -> saglikDurumu = sonuc.mesaj
+                    }
                 } else {
-                    saglikDurumu = "Sağlık izni bekleniyor"
+                    saglikDurumu = "Sağlık izni isteniyor..."
                     saglikIzinIstegi.launch(SAGLIK_IZINLERI)
                 }
             } catch (e: Exception) {
-                saglikDurumu = "Bağlantı hatası"
+                saglikDurumu = "${'$'}{e.javaClass.simpleName}: ${'$'}{e.message ?: "bilinmeyen hata"}"
             }
         }
     }
@@ -972,11 +985,16 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { saglikVerisiniIsteVeGetir() }) {
-                    Text("Sağlık İznini İste / Yenile")
+                Row {
+                    TextButton(onClick = { saglikVerisiniIsteVeGetir() }) {
+                        Text("Sağlık İznini İste / Yenile")
+                    }
+                    TextButton(onClick = { healthConnectUygulamasiniAc(context) }) {
+                        Text("Health Connect'i Aç")
+                    }
                 }
                 if (saglikDurumu.isNotBlank()) {
-                    Text(saglikDurumu, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(saglikDurumu, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
             }
         }

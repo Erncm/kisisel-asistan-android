@@ -78,7 +78,7 @@ private fun DusunmeIcerik(text: String, modifier: Modifier = Modifier) {
         label = "text-shimmer"
     )
 
-    val kapsulRengi = lerp(Color(0xFF1E1830), SamanthaTheme.accent, 0.18f)
+    val kapsulRengi = lerp(Color(0xFF170F08), SamanthaTheme.accent, 0.18f)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
