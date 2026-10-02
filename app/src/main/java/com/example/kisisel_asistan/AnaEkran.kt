@@ -921,7 +921,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                     saglikIzinIstegi.launch(SAGLIK_IZINLERI)
                 }
             } catch (e: Exception) {
-                saglikDurumu = "${'$'}{e.javaClass.simpleName}: ${'$'}{e.message ?: "bilinmeyen hata"}"
+                saglikDurumu = "${e.javaClass.simpleName}: ${e.message ?: "bilinmeyen hata"}"
             }
         }
     }
