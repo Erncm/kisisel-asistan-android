@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
         SohbetDurumu.baslat(this)
         HafizaDeposu.baslat(this)
         UygulamaKatalogu.yukle(this)
+        ApplicationContextTutucu.context = applicationContext
         disaridanGelenMetniIsle(intent)
         setContent {
             KisiselasistanTheme {

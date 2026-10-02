@@ -636,6 +636,9 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(32.dp))
         SabahOzetiAyarBolumu()
+
+        Spacer(modifier = Modifier.height(32.dp))
+        SaatBaglantiBolumu()
     }
 }
 
@@ -1012,6 +1015,76 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun SaatBaglantiBolumu(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var cihazlar by remember { mutableStateOf(BluetoothKopru.eslesikCihazlariListele(context)) }
+
+    val izinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { verildi -> if (verildi) cihazlar = BluetoothKopru.eslesikCihazlariListele(context) }
+
+    Column(modifier = modifier) {
+        Text("Saat Bağlantısı (Bluetooth)", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Saat uygulamasıyla eşleştirilmiş cihaz üzerinden iki yönlü veri alışverişi. Önce telefonun Bluetooth ayarlarından saati eşleştirmen gerekiyor.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Text("Durum: ${BluetoothKopru.durum}", style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(8.dp))
+
+        Button(onClick = {
+            if (BluetoothKopru.baglantiIzniVarMi(context)) {
+                cihazlar = BluetoothKopru.eslesikCihazlariListele(context)
+            } else {
+                izinIstegi.launch(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        }) {
+            Text("Eşleşik Cihazları Göster")
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        if (cihazlar.isEmpty()) {
+            Text("Eşleşik cihaz bulunamadı", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        } else {
+            Column {
+                cihazlar.forEach { cihaz ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(cihaz.ad, style = MaterialTheme.typography.bodyMedium)
+                                Text(cihaz.adres, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Button(onClick = { BluetoothKopru.cihazaBaglan(context, cihaz.adres) }) {
+                                Text("Bağlan")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (BluetoothKopru.baglandiMi) {
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { BluetoothKopru.baglantiyiKes() }) {
+                Text("Bağlantıyı Kes")
             }
         }
     }
