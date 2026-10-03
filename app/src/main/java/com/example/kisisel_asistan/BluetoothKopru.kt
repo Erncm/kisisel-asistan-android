@@ -21,11 +21,20 @@ import java.util.UUID
 
 data class EslesikCihaz(val ad: String, val adres: String)
 
+object SaatSaglikVerisi {
+    var nabiz: Int? by mutableStateOf(null)
+    var spo2: Int? by mutableStateOf(null)
+    var stres: Int? by mutableStateOf(null)
+    var canlilikPuani: Int? by mutableStateOf(null)
+    var sonGuncelleme: Long? by mutableStateOf(null)
+}
+
 object BluetoothKopru {
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     var durum by mutableStateOf("Bağlı değil")
     var baglandiMi by mutableStateOf(false)
+    var baglananCihazAdi by mutableStateOf<String?>(null)
 
     private var soket: BluetoothSocket? = null
     private var dinlemeIsi: Job? = null
@@ -49,15 +58,24 @@ object BluetoothKopru {
     }
 
     @SuppressLint("MissingPermission")
-    fun cihazaBaglan(context: Context, adres: String) {
+    fun cihazaBaglan(context: Context, adres: String, ad: String) {
         if (!baglantiIzniVarMi(context)) {
-            durum = "Bluetooth izni yok"
+            durum = "Bağlanmadı: Bluetooth izni yok"
             return
         }
+        val adaptor = BluetoothAdapter.getDefaultAdapter()
+        if (adaptor == null) {
+            durum = "Bağlanmadı: bu cihazda Bluetooth yok"
+            return
+        }
+        if (!adaptor.isEnabled) {
+            durum = "Bağlanmadı: Bluetooth kapalı"
+            return
+        }
+
         kapsam.launch {
+            durum = "Bağlanıyor..."
             try {
-                durum = "Bağlanılıyor..."
-                val adaptor = BluetoothAdapter.getDefaultAdapter()
                 val cihaz: BluetoothDevice = adaptor.getRemoteDevice(adres)
                 adaptor.cancelDiscovery()
 
@@ -65,14 +83,17 @@ object BluetoothKopru {
                 yeniSoket.connect()
                 soket = yeniSoket
                 baglandiMi = true
-                durum = "Bağlandı: ${cihaz.name ?: adres}"
+                baglananCihazAdi = ad
+                durum = "Bağlandı: $ad ✓"
                 dinlemeyeBasla()
             } catch (e: IOException) {
-                durum = "Bağlantı başarısız: ${e.message ?: "bilinmeyen hata"}"
                 baglandiMi = false
+                baglananCihazAdi = null
+                durum = "Bağlanmadı: ${e.message ?: "cihaz yanıt vermedi"}"
             } catch (e: SecurityException) {
-                durum = "İzin reddedildi"
                 baglandiMi = false
+                baglananCihazAdi = null
+                durum = "Bağlanmadı: izin reddedildi"
             }
         }
     }
@@ -92,7 +113,7 @@ object BluetoothKopru {
                     }
                 } catch (e: IOException) {
                     baglandiMi = false
-                    durum = "Bağlantı koptu"
+                    durum = "Bağlanmadı: bağlantı koptu"
                     break
                 }
             }
@@ -108,6 +129,13 @@ object BluetoothKopru {
                     val context = ApplicationContextTutucu.context ?: return
                     val cevap = mesajiIsleVeCevapAl(context, soru)
                     cevapGonder(cevap)
+                }
+                "saat_saglik" -> {
+                    if (json.has("nabiz")) SaatSaglikVerisi.nabiz = json.optInt("nabiz")
+                    if (json.has("spo2")) SaatSaglikVerisi.spo2 = json.optInt("spo2")
+                    if (json.has("stres")) SaatSaglikVerisi.stres = json.optInt("stres")
+                    if (json.has("canlilik")) SaatSaglikVerisi.canlilikPuani = json.optInt("canlilik")
+                    SaatSaglikVerisi.sonGuncelleme = System.currentTimeMillis()
                 }
             }
         } catch (e: Exception) {
@@ -141,6 +169,11 @@ object BluetoothKopru {
         veriGonder(json)
     }
 
+    fun saatVeriIste() {
+        val json = JSONObject().apply { put("tip", "saglik_iste") }
+        veriGonder(json)
+    }
+
     private fun veriGonder(json: JSONObject) {
         val mevcutSoket = soket ?: return
         kapsam.launch {
@@ -150,13 +183,14 @@ object BluetoothKopru {
                 mevcutSoket.outputStream.flush()
             } catch (e: IOException) {
                 baglandiMi = false
-                durum = "Gönderim başarısız, bağlantı koptu"
+                durum = "Bağlanmadı: gönderim sırasında bağlantı koptu"
             }
         }
     }
 
     fun baglantiyiKes() {
         baglandiMi = false
+        baglananCihazAdi = null
         dinlemeIsi?.cancel()
         try {
             soket?.close()

@@ -72,6 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import java.time.Duration
+import java.time.format.DateTimeFormatter
 import kotlin.math.hypot
 import kotlinx.coroutines.launch
 
@@ -90,7 +92,7 @@ fun AnaEkranIskelet() {
                 when (tab) {
                     0 -> AnaSayfaIcerik()
                     1 -> SohbetEkrani()
-                    2 -> Text("Sağlık ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
+                    2 -> SaglikEkrani()
                     3 -> Text("Ara ekranı", modifier = Modifier.padding(16.dp), color = SamanthaTheme.ink)
                     4 -> AyarlarEkrani()
                 }
@@ -485,7 +487,7 @@ fun GorunumAyarBolumu(modifier: Modifier = Modifier) {
                 Switch(
                     checked = SamanthaTheme.isDark,
                     onCheckedChange = { checked ->
-                        val target = if (checked) Color(0xFF151223) else Color(0xFFFAF8FF)
+                        val target = if (checked) Color(0xFF0A0807) else Color(0xFFFFFBF5)
                         applyWithReveal(switchCenter, target) { SamanthaTheme.isDark = checked }
                     },
                     modifier = Modifier.onGloballyPositioned { switchCenter = it.boundsInRoot().center }
@@ -838,14 +840,92 @@ fun SabahOzetiAyarBolumu(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun SaatBaglantiBolumu(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var cihazlar by remember { mutableStateOf(BluetoothKopru.eslesikCihazlariListele(context)) }
+
+    val izinIstegi = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { verildi -> if (verildi) cihazlar = BluetoothKopru.eslesikCihazlariListele(context) }
+
+    Column(modifier = modifier) {
+        Text("Saat Bağlantısı (Bluetooth)", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Saat uygulamasıyla eşleştirilmiş cihaz üzerinden iki yönlü veri alışverişi. Önce telefonun Bluetooth ayarlarından saati eşleştirmen gerekiyor.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+
+        val durumRengi = when {
+            BluetoothKopru.baglandiMi -> MaterialTheme.colorScheme.primary
+            BluetoothKopru.durum.startsWith("Bağlanmadı") -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Text("Durum: ${BluetoothKopru.durum}", style = MaterialTheme.typography.bodyMedium, color = durumRengi)
+        Spacer(Modifier.height(8.dp))
+
+        Button(onClick = {
+            if (BluetoothKopru.baglantiIzniVarMi(context)) {
+                cihazlar = BluetoothKopru.eslesikCihazlariListele(context)
+            } else {
+                izinIstegi.launch(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        }) {
+            Text("Eşleşik Cihazları Göster")
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        if (cihazlar.isEmpty()) {
+            Text("Eşleşik cihaz bulunamadı", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        } else {
+            Column {
+                cihazlar.forEach { cihaz ->
+                    val buCihazBagli = BluetoothKopru.baglandiMi && BluetoothKopru.baglananCihazAdi == cihaz.ad
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(cihaz.ad, style = MaterialTheme.typography.bodyMedium)
+                                Text(cihaz.adres, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Button(
+                                onClick = { BluetoothKopru.cihazaBaglan(context, cihaz.adres, cihaz.ad) },
+                                enabled = !buCihazBagli
+                            ) {
+                                Text(if (buCihazBagli) "Bağlandı ✓" else "Bağlan")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (BluetoothKopru.baglandiMi) {
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { BluetoothKopru.baglantiyiKes() }) {
+                Text("Bağlantıyı Kes")
+            }
+        }
+    }
+}
+
+@Composable
 fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val kapsam = rememberCoroutineScope()
     var havaDurumu by remember { mutableStateOf(havaDurumuOnbellekOku(context)) }
     var konumDurumu by remember { mutableStateOf("") }
 
-    var adimSayisi by remember { mutableStateOf<Long?>(null) }
-    var uykuSuresi by remember { mutableStateOf<java.time.Duration?>(null) }
+    var saglikVerisi by remember { mutableStateOf<SaglikVerisi?>(null) }
     var saglikDurumu by remember { mutableStateOf("") }
 
     fun konumuIsle(konum: android.location.Location?) {
@@ -883,9 +963,11 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                 saglikDurumu = "Yükleniyor..."
                 when (val sonuc = bugunkuSaglikVerisiniGetirDetayli(context)) {
                     is SaglikSonucu.Basarili -> {
-                        adimSayisi = sonuc.veri.adimSayisi
-                        uykuSuresi = sonuc.veri.uykuSuresi
+                        saglikVerisi = sonuc.veri
                         saglikDurumu = ""
+                        if (BluetoothKopru.baglandiMi) {
+                            BluetoothKopru.saglikOzetiGonder(sonuc.veri.adimSayisi, sonuc.veri.uykuSuresi?.toMinutes())
+                        }
                     }
                     is SaglikSonucu.Hata -> saglikDurumu = sonuc.mesaj
                 }
@@ -913,9 +995,11 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                     saglikDurumu = "Yükleniyor..."
                     when (val sonuc = bugunkuSaglikVerisiniGetirDetayli(context)) {
                         is SaglikSonucu.Basarili -> {
-                            adimSayisi = sonuc.veri.adimSayisi
-                            uykuSuresi = sonuc.veri.uykuSuresi
+                            saglikVerisi = sonuc.veri
                             saglikDurumu = ""
+                            if (BluetoothKopru.baglandiMi) {
+                                BluetoothKopru.saglikOzetiGonder(sonuc.veri.adimSayisi, sonuc.veri.uykuSuresi?.toMinutes())
+                            }
                         }
                         is SaglikSonucu.Hata -> saglikDurumu = sonuc.mesaj
                     }
@@ -925,6 +1009,14 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
                 }
             } catch (e: Exception) {
                 saglikDurumu = "${e.javaClass.simpleName}: ${e.message ?: "bilinmeyen hata"}"
+            }
+        }
+    }
+
+    LaunchedEffect(havaDurumu) {
+        havaDurumu?.let { veri ->
+            if (BluetoothKopru.baglandiMi) {
+                BluetoothKopru.havaDurumuGonder(veri.sicaklik.toInt(), veri.aciklama)
             }
         }
     }
@@ -974,27 +1066,32 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Sağlık", style = MaterialTheme.typography.titleMedium)
+                Text("Sağlık Özeti", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column {
-                        Text(adimSayisi?.toString() ?: "--", style = MaterialTheme.typography.headlineSmall)
-                        Text("Adım", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Column {
-                        val uykuMetni = uykuSuresi?.let { "${it.toHours()}s ${it.toMinutes() % 60}dk" } ?: "--"
-                        Text(uykuMetni, style = MaterialTheme.typography.headlineSmall)
-                        Text("Uyku", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MiniSaglikKart("Adım", saglikVerisi?.adimSayisi?.toString() ?: "--", Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    MiniSaglikKart("Uyku", sureFormatla(saglikVerisi?.uykuSuresi), Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(8.dp))
-                Row {
-                    TextButton(onClick = { saglikVerisiniIsteVeGetir() }) {
-                        Text("Sağlık İznini İste / Yenile")
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MiniSaglikKart("Nabız", saglikVerisi?.nabizOrtalama?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    MiniSaglikKart("Kalori", saglikVerisi?.kaloriToplam?.let { "${it.toInt()} kcal" } ?: "--", Modifier.weight(1f))
+                }
+
+                if (BluetoothKopru.baglandiMi && (SaatSaglikVerisi.stres != null || SaatSaglikVerisi.canlilikPuani != null)) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        MiniSaglikKart("Stres (saat)", SaatSaglikVerisi.stres?.toString() ?: "--", Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        MiniSaglikKart("Canlılık (saat)", SaatSaglikVerisi.canlilikPuani?.toString() ?: "--", Modifier.weight(1f))
                     }
-                    TextButton(onClick = { healthConnectUygulamasiniAc(context) }) {
-                        Text("Health Connect'i Aç")
-                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { saglikVerisiniIsteVeGetir() }) {
+                    Text("Sağlık İznini İste / Yenile")
                 }
                 if (saglikDurumu.isNotBlank()) {
                     Text(saglikDurumu, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -1021,70 +1118,154 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun SaatBaglantiBolumu(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    var cihazlar by remember { mutableStateOf(BluetoothKopru.eslesikCihazlariListele(context)) }
-
-    val izinIstegi = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { verildi -> if (verildi) cihazlar = BluetoothKopru.eslesikCihazlariListele(context) }
-
-    Column(modifier = modifier) {
-        Text("Saat Bağlantısı (Bluetooth)", style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Saat uygulamasıyla eşleştirilmiş cihaz üzerinden iki yönlü veri alışverişi. Önce telefonun Bluetooth ayarlarından saati eşleştirmen gerekiyor.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(12.dp))
-
-        Text("Durum: ${BluetoothKopru.durum}", style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(8.dp))
-
-        Button(onClick = {
-            if (BluetoothKopru.baglantiIzniVarMi(context)) {
-                cihazlar = BluetoothKopru.eslesikCihazlariListele(context)
-            } else {
-                izinIstegi.launch(Manifest.permission.BLUETOOTH_CONNECT)
-            }
-        }) {
-            Text("Eşleşik Cihazları Göster")
+fun MiniSaglikKart(baslik: String, deger: String, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, shape = RoundedCornerShape(12.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(deger, style = MaterialTheme.typography.titleMedium)
+            Text(baslik, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
+fun sureFormatla(sure: Duration?): String {
+    if (sure == null) return "--"
+    val saat = sure.toHours()
+    val dakika = sure.toMinutes() % 60
+    return "${saat}s ${dakika}dk"
+}
 
-        if (cihazlar.isEmpty()) {
-            Text("Eşleşik cihaz bulunamadı", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        } else {
-            Column {
-                cihazlar.forEach { cihaz ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(cihaz.ad, style = MaterialTheme.typography.bodyMedium)
-                                Text(cihaz.adres, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Button(onClick = { BluetoothKopru.cihazaBaglan(context, cihaz.adres) }) {
-                                Text("Bağlan")
-                            }
-                        }
-                    }
+@Composable
+fun SaglikEkrani(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val kapsam = rememberCoroutineScope()
+    var saglikVerisi by remember { mutableStateOf<SaglikVerisi?>(null) }
+    var saglikDurumu by remember { mutableStateOf("Yükleniyor...") }
+
+    val saglikIzinIstegi = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { verilenIzinler ->
+        if (verilenIzinler.containsAll(SAGLIK_IZINLERI)) {
+            kapsam.launch {
+                when (val sonuc = bugunkuSaglikVerisiniGetirDetayli(context)) {
+                    is SaglikSonucu.Basarili -> { saglikVerisi = sonuc.veri; saglikDurumu = "" }
+                    is SaglikSonucu.Hata -> saglikDurumu = sonuc.mesaj
                 }
             }
+        } else {
+            saglikDurumu = "Sağlık izni verilmedi"
+        }
+    }
+
+    fun yenile() {
+        val durumKodu = healthConnectDurumKodu(context)
+        if (durumKodu != HealthConnectClient.SDK_AVAILABLE) {
+            saglikDurumu = "Health Connect kurulu değil"
+            return
+        }
+        kapsam.launch {
+            try {
+                val client = HealthConnectClient.getOrCreate(context)
+                val mevcutIzinler = client.permissionController.getGrantedPermissions()
+                if (mevcutIzinler.containsAll(SAGLIK_IZINLERI)) {
+                    saglikDurumu = "Yükleniyor..."
+                    when (val sonuc = bugunkuSaglikVerisiniGetirDetayli(context)) {
+                        is SaglikSonucu.Basarili -> { saglikVerisi = sonuc.veri; saglikDurumu = "" }
+                        is SaglikSonucu.Hata -> saglikDurumu = sonuc.mesaj
+                    }
+                } else {
+                    saglikIzinIstegi.launch(SAGLIK_IZINLERI)
+                }
+            } catch (e: Exception) {
+                saglikDurumu = "${e.javaClass.simpleName}: ${e.message ?: "bilinmeyen hata"}"
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { yenile() }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Sağlık", style = MaterialTheme.typography.headlineSmall, color = SamanthaTheme.ink)
+            TextButton(onClick = { yenile() }) { Text("Yenile") }
+        }
+        if (saglikDurumu.isNotBlank()) {
+            Text(saglikDurumu, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Text("Health Connect", style = MaterialTheme.typography.titleMedium, color = SamanthaTheme.muted)
+        Spacer(Modifier.height(8.dp))
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MiniSaglikKart("Adım", saglikVerisi?.adimSayisi?.toString() ?: "--", Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            MiniSaglikKart("Uyku", sureFormatla(saglikVerisi?.uykuSuresi), Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MiniSaglikKart("Nabız (ort.)", saglikVerisi?.nabizOrtalama?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            MiniSaglikKart("Nabız (maks.)", saglikVerisi?.nabizMaks?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MiniSaglikKart("Oksijen (SpO2)", saglikVerisi?.oksijenYuzdesi?.let { "${it.toInt()}%" } ?: "--", Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            MiniSaglikKart("Kalori", saglikVerisi?.kaloriToplam?.let { "${it.toInt()} kcal" } ?: "--", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MiniSaglikKart("Hareket Süresi", sureFormatla(saglikVerisi?.hareketSuresi), Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Box(modifier = Modifier.weight(1f))
         }
 
-        if (BluetoothKopru.baglandiMi) {
+        Spacer(Modifier.height(20.dp))
+        Text("Saat Üzerinden (Bluetooth)", style = MaterialTheme.typography.titleMedium, color = SamanthaTheme.muted)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            if (BluetoothKopru.baglandiMi) "Bağlı: ${BluetoothKopru.baglananCihazAdi}" else "Saat bağlı değil — Ayarlar'dan bağlanabilirsin",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (BluetoothKopru.baglandiMi) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MiniSaglikKart("Stres", SaatSaglikVerisi.stres?.toString() ?: "--", Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            MiniSaglikKart("Canlılık Puanı", SaatSaglikVerisi.canlilikPuani?.toString() ?: "--", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MiniSaglikKart("Nabız (saat)", SaatSaglikVerisi.nabiz?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            MiniSaglikKart("SpO2 (saat)", SaatSaglikVerisi.spo2?.let { "$it%" } ?: "--", Modifier.weight(1f))
+        }
+
+        if (saglikVerisi?.antrenmanlar?.isNotEmpty() == true) {
+            Spacer(Modifier.height(20.dp))
+            Text("Antrenman Geçmişi", style = MaterialTheme.typography.titleMedium, color = SamanthaTheme.muted)
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { BluetoothKopru.baglantiyiKes() }) {
-                Text("Bağlantıyı Kes")
+            val formatlayici = DateTimeFormatter.ofPattern("d MMM, HH:mm")
+            saglikVerisi?.antrenmanlar?.forEach { antrenman ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = RoundedCornerShape(12.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(antrenman.baslik, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "${sureFormatla(antrenman.sure)} · ${antrenman.baslangic.atZone(java.time.ZoneId.systemDefault()).format(formatlayici)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
