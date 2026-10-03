@@ -10,13 +10,17 @@ object SamanthaTheme {
     var accent by mutableStateOf(Color(0xFFFF8C00))
     var isDark by mutableStateOf(true)
 
-    val bg: Color get() = if (isDark) Color(0xFF0A0807) else Color(0xFFFFFBF5)
-    val bar: Color get() = if (isDark) Color(0xFF17120D) else Color(0xFFFFEDD8)
-    val ink: Color get() = if (isDark) Color(0xFFFFF3E0) else Color(0xFF2B1D0E)
-    val muted: Color = Color(0xFFB08968)
+    val bg: Color get() = if (isDark) Color(0xFF060608) else Color(0xFFFFFBF5)
+    val card: Color get() = if (isDark) Color(0xFF15110D) else Color(0xFFFFFFFF)
+    val bar: Color get() = if (isDark) Color(0xFF120E0A) else Color(0xFFFFEDD8)
+    val ink: Color get() = if (isDark) Color(0xFFFBEFDC) else Color(0xFF2B1D0E)
+    val muted: Color = Color(0xFFA58F78)
 
     val accent2: Color get() = lerp(accent, Color.Black, 0.4f)
     val pill: Color get() = lerp(bg, accent, 0.22f)
+
+    val tagOk: Color = Color(0xFF50C878)
+    val tagBad: Color = Color(0xFFF05A46)
 }
 
 val ACCENT_PALETTE = listOf(

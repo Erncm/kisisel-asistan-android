@@ -396,7 +396,7 @@ fun MesajBalonu(mesaj: ChatMesaj) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(22.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (mesaj.benMi) SamanthaTheme.pill else MaterialTheme.colorScheme.surfaceVariant
             )
@@ -549,7 +549,7 @@ fun AyarlarEkrani(modifier: Modifier = Modifier) {
         Text("Yerel AI Modeli (Çevrimdışı)", style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
 
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(22.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 when {
                     modelMevcut -> {
@@ -863,7 +863,14 @@ fun SaatBaglantiBolumu(modifier: Modifier = Modifier) {
             BluetoothKopru.durum.startsWith("Bağlanmadı") -> MaterialTheme.colorScheme.error
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
-        Text("Durum: ${BluetoothKopru.durum}", style = MaterialTheme.typography.bodyMedium, color = durumRengi)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Durum: ${BluetoothKopru.durum}", style = MaterialTheme.typography.bodyMedium, color = durumRengi, modifier = Modifier.weight(1f))
+            when {
+                BluetoothKopru.baglandiMi -> OrbTag("Bağlı", EtiketTuru.OK)
+                BluetoothKopru.durum.startsWith("Bağlanmadı") -> OrbTag("Bağlanmadı", EtiketTuru.BAD)
+                else -> OrbTag("Beklemede")
+            }
+        }
         Spacer(Modifier.height(8.dp))
 
         Button(onClick = {
@@ -1032,7 +1039,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
         Text("Merhaba", style = MaterialTheme.typography.headlineSmall, color = SamanthaTheme.ink)
         Spacer(Modifier.height(16.dp))
 
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(22.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1064,28 +1071,28 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 
         Spacer(Modifier.height(16.dp))
 
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(22.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Sağlık Özeti", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    MiniSaglikKart("Adım", saglikVerisi?.adimSayisi?.toString() ?: "--", Modifier.weight(1f))
+                    OrbTile("Adım", saglikVerisi?.adimSayisi?.toString() ?: "--", Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
-                    MiniSaglikKart("Uyku", sureFormatla(saglikVerisi?.uykuSuresi), Modifier.weight(1f))
+                    OrbTile("Uyku", sureFormatla(saglikVerisi?.uykuSuresi), Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    MiniSaglikKart("Nabız", saglikVerisi?.nabizOrtalama?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+                    OrbTile("Nabız", saglikVerisi?.nabizOrtalama?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
-                    MiniSaglikKart("Kalori", saglikVerisi?.kaloriToplam?.let { "${it.toInt()} kcal" } ?: "--", Modifier.weight(1f))
+                    OrbTile("Kalori", saglikVerisi?.kaloriToplam?.let { "${it.toInt()} kcal" } ?: "--", Modifier.weight(1f))
                 }
 
                 if (BluetoothKopru.baglandiMi && (SaatSaglikVerisi.stres != null || SaatSaglikVerisi.canlilikPuani != null)) {
                     Spacer(Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        MiniSaglikKart("Stres (saat)", SaatSaglikVerisi.stres?.toString() ?: "--", Modifier.weight(1f))
+                        OrbTile("Stres (saat)", SaatSaglikVerisi.stres?.toString() ?: "--", Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
-                        MiniSaglikKart("Canlılık (saat)", SaatSaglikVerisi.canlilikPuani?.toString() ?: "--", Modifier.weight(1f))
+                        OrbTile("Canlılık (saat)", SaatSaglikVerisi.canlilikPuani?.toString() ?: "--", Modifier.weight(1f))
                     }
                 }
 
@@ -1101,7 +1108,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 
         Spacer(Modifier.height(16.dp))
 
-        Card(shape = RoundedCornerShape(16.dp)) {
+        Card(shape = RoundedCornerShape(22.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("İpucu", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(4.dp))
@@ -1118,7 +1125,7 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun MiniSaglikKart(baslik: String, deger: String, modifier: Modifier = Modifier) {
+fun OrbTile(baslik: String, deger: String, modifier: Modifier = Modifier) {
     Card(modifier = modifier, shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(deger, style = MaterialTheme.typography.titleMedium)
@@ -1206,25 +1213,25 @@ fun SaglikEkrani(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(8.dp))
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            MiniSaglikKart("Adım", saglikVerisi?.adimSayisi?.toString() ?: "--", Modifier.weight(1f))
+            OrbTile("Adım", saglikVerisi?.adimSayisi?.toString() ?: "--", Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
-            MiniSaglikKart("Uyku", sureFormatla(saglikVerisi?.uykuSuresi), Modifier.weight(1f))
+            OrbTile("Uyku", sureFormatla(saglikVerisi?.uykuSuresi), Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            MiniSaglikKart("Nabız (ort.)", saglikVerisi?.nabizOrtalama?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+            OrbTile("Nabız (ort.)", saglikVerisi?.nabizOrtalama?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
-            MiniSaglikKart("Nabız (maks.)", saglikVerisi?.nabizMaks?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+            OrbTile("Nabız (maks.)", saglikVerisi?.nabizMaks?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            MiniSaglikKart("Oksijen (SpO2)", saglikVerisi?.oksijenYuzdesi?.let { "${it.toInt()}%" } ?: "--", Modifier.weight(1f))
+            OrbTile("Oksijen (SpO2)", saglikVerisi?.oksijenYuzdesi?.let { "${it.toInt()}%" } ?: "--", Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
-            MiniSaglikKart("Kalori", saglikVerisi?.kaloriToplam?.let { "${it.toInt()} kcal" } ?: "--", Modifier.weight(1f))
+            OrbTile("Kalori", saglikVerisi?.kaloriToplam?.let { "${it.toInt()} kcal" } ?: "--", Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            MiniSaglikKart("Hareket Süresi", sureFormatla(saglikVerisi?.hareketSuresi), Modifier.weight(1f))
+            OrbTile("Hareket Süresi", sureFormatla(saglikVerisi?.hareketSuresi), Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
             Box(modifier = Modifier.weight(1f))
         }
@@ -1239,15 +1246,15 @@ fun SaglikEkrani(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            MiniSaglikKart("Stres", SaatSaglikVerisi.stres?.toString() ?: "--", Modifier.weight(1f))
+            OrbTile("Stres", SaatSaglikVerisi.stres?.toString() ?: "--", Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
-            MiniSaglikKart("Canlılık Puanı", SaatSaglikVerisi.canlilikPuani?.toString() ?: "--", Modifier.weight(1f))
+            OrbTile("Canlılık Puanı", SaatSaglikVerisi.canlilikPuani?.toString() ?: "--", Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
-            MiniSaglikKart("Nabız (saat)", SaatSaglikVerisi.nabiz?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
+            OrbTile("Nabız (saat)", SaatSaglikVerisi.nabiz?.let { "$it bpm" } ?: "--", Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
-            MiniSaglikKart("SpO2 (saat)", SaatSaglikVerisi.spo2?.let { "$it%" } ?: "--", Modifier.weight(1f))
+            OrbTile("SpO2 (saat)", SaatSaglikVerisi.spo2?.let { "$it%" } ?: "--", Modifier.weight(1f))
         }
 
         if (saglikVerisi?.antrenmanlar?.isNotEmpty() == true) {
