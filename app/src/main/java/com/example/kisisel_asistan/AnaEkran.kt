@@ -1124,16 +1124,6 @@ fun AnaSayfaIcerik(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun OrbTile(baslik: String, deger: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, shape = RoundedCornerShape(12.dp)) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(deger, style = MaterialTheme.typography.titleMedium)
-            Text(baslik, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
 fun sureFormatla(sure: Duration?): String {
     if (sure == null) return "--"
     val saat = sure.toHours()
